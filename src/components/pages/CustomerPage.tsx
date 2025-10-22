@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import type { UserRole } from '../../types';
+import { customerService } from '../../services/customerService';
+import type { Customer as ApiCustomer } from '../../services/customerService';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import {
@@ -41,33 +42,14 @@ interface CustomerPageProps {
   userRole: UserRole;
 }
 
-interface Customer {
-  id: number;
-  code: string;
-  name: string;
-  type: 'ลูกค้า' | 'คู่ค้า' | 'ทั้งคู่ค้าและลูกค้า';
-  branch_name?: string;
-  tax_id?: string;
-  contact_person?: string;
-  phone: string;
-  email: string;
-  address?: string;
-  note?: string;
-  account_name?: string;
-  bank_account?: string;
-  bank_name?: string;
-  status: 'active' | 'inactive';
-}
-
 export default function CustomerPage({ userRole }: CustomerPageProps) {
-  const API_URL = 'http://127.0.0.1:8000/api/customers';
-  const [data, setData] = useState<Customer[]>([]);
+  const [data, setData] = useState<ApiCustomer[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<Customer | null>(null);
+  const [selectedItem, setSelectedItem] = useState<ApiCustomer | null>(null);
   const [formData, setFormData] = useState({
     code: '',
     name: '',
@@ -94,8 +76,8 @@ export default function CustomerPage({ userRole }: CustomerPageProps) {
 
   const fetchCustomers = async () => {
     try {
-      const res = await axios.get(API_URL);
-      setData(res.data);
+      const customers = await customerService.getAll();
+      setData(customers);
     } catch (error) {
       console.error('Error loading customers:', error);
       toast.error('ไม่สามารถโหลดข้อมูลลูกค้าได้');
@@ -104,7 +86,7 @@ export default function CustomerPage({ userRole }: CustomerPageProps) {
 
   const handleAdd = async () => {
     try {
-      const payload = {
+      await customerService.create({
         code: formData.code,
         name: formData.name,
         type: formData.type,
@@ -119,8 +101,7 @@ export default function CustomerPage({ userRole }: CustomerPageProps) {
         bank_account: formData.accountNumber,
         bank_name: formData.bankName,
         status: formData.status ? 'active' : 'inactive',
-      };
-      await axios.post(API_URL, payload);
+      });
       toast.success('เพิ่มลูกค้า/คู่ค้าสำเร็จ');
       setIsAddDialogOpen(false);
       fetchCustomers();
@@ -130,7 +111,7 @@ export default function CustomerPage({ userRole }: CustomerPageProps) {
     }
   };
 
-  const handleEdit = (item: Customer) => {
+  const handleEdit = (item: ApiCustomer) => {
     if (!canEdit) {
       toast.error('คุณไม่มีสิทธิ์แก้ไขข้อมูล');
       return;
@@ -139,7 +120,7 @@ export default function CustomerPage({ userRole }: CustomerPageProps) {
     setFormData({
       code: item.code,
       name: item.name,
-      type: item.type,
+      type: item.type as 'ลูกค้า' | 'คู่ค้า' | 'ทั้งคู่ค้าและลูกค้า',
       branchName: item.branch_name || '',
       taxId: item.tax_id || '',
       contactPerson: item.contact_person || '',
@@ -158,10 +139,10 @@ export default function CustomerPage({ userRole }: CustomerPageProps) {
   const handleUpdate = async () => {
     if (!selectedItem) return;
     try {
-      const payload = {
+      await customerService.update(selectedItem.id, {
         code: formData.code,
         name: formData.name,
-        type: formData.type,
+        type: formData.type as 'ลูกค้า' | 'คู่ค้า' | 'ทั้งคู่ค้าและลูกค้า',
         branch_name: formData.branchName,
         tax_id: formData.taxId,
         contact_person: formData.contactPerson,
@@ -173,8 +154,7 @@ export default function CustomerPage({ userRole }: CustomerPageProps) {
         bank_account: formData.accountNumber,
         bank_name: formData.bankName,
         status: formData.status ? 'active' : 'inactive',
-      };
-      await axios.put(`${API_URL}/${selectedItem.id}`, payload);
+      });
       toast.success('อัปเดตลูกค้าสำเร็จ');
       setIsEditDialogOpen(false);
       fetchCustomers();
@@ -184,12 +164,12 @@ export default function CustomerPage({ userRole }: CustomerPageProps) {
     }
   };
 
-  const handleView = (item: Customer) => {
+  const handleView = (item: ApiCustomer) => {
     setSelectedItem(item);
     setIsViewDialogOpen(true);
   };
 
-  const handleDeleteClick = (item: Customer) => {
+  const handleDeleteClick = (item: ApiCustomer) => {
     if (!canDelete) {
       toast.error('คุณไม่มีสิทธิ์ลบข้อมูล');
       return;
@@ -201,7 +181,7 @@ export default function CustomerPage({ userRole }: CustomerPageProps) {
   const handleConfirmDelete = async () => {
     if (!selectedItem) return;
     try {
-      await axios.delete(`${API_URL}/${selectedItem.id}`);
+      await customerService.delete(selectedItem.id);
       toast.success(`ลบลูกค้า/คู่ค้า ${selectedItem.name} สำเร็จ`);
       setIsDeleteDialogOpen(false);
       fetchCustomers();
@@ -343,8 +323,8 @@ export default function CustomerPage({ userRole }: CustomerPageProps) {
                     </div>
                   </TableCell>
                   <TableCell>{getTypeBadge(item.type)}</TableCell>
-                  <TableCell>{item.contactPerson || '-'}</TableCell>
-                  <TableCell>{item.contact}</TableCell>
+                  <TableCell>{item.contact_person || '-'}</TableCell>
+                  <TableCell>{item.phone}</TableCell>
                   <TableCell>{item.email}</TableCell>
                   <TableCell>{getStatusBadge(item.status)}</TableCell>
                   <TableCell>
@@ -734,30 +714,30 @@ export default function CustomerPage({ userRole }: CustomerPageProps) {
                 <p className="mt-1">{selectedItem.name}</p>
               </div>
 
-              {selectedItem.branchName && (
+              {selectedItem.branch_name && (
                 <div>
                   <Label className="text-gray-500">ชื่อสาขา</Label>
-                  <p className="mt-1">{selectedItem.branchName}</p>
+                  <p className="mt-1">{selectedItem.branch_name}</p>
                 </div>
               )}
 
-            {selectedItem?.taxId && (
+            {selectedItem?.tax_id && (
   <div>
     <Label className="text-gray-500">เลขประจำตัวผู้เสียภาษี</Label>
-    <p className="mt-1">{selectedItem?.taxId}</p>
+    <p className="mt-1">{selectedItem?.tax_id}</p>
   </div>
 )}
 
 <div className="grid grid-cols-2 gap-4">
-  {selectedItem?.contact_Person && (
+  {selectedItem?.contact_person && (
     <div>
       <Label className="text-gray-500">ชื่อผู้ติดต่อ</Label>
-      <p className="mt-1">{selectedItem?.contact_Person}</p>
+      <p className="mt-1">{selectedItem?.contact_person}</p>
     </div>
   )}
   <div>
     <Label className="text-gray-500">เบอร์ติดต่อ</Label>
-    <p className="mt-1">{selectedItem?.contact}</p>
+    <p className="mt-1">{selectedItem?.phone}</p>
   </div>
 </div>
 
@@ -781,25 +761,25 @@ export default function CustomerPage({ userRole }: CustomerPageProps) {
 )}
 
 
-              {(selectedItem.accountName || selectedItem.accountNumber || selectedItem.bankName) && (
+              {(selectedItem.account_name || selectedItem.bank_account || selectedItem.bank_name) && (
                 <div className="pt-4 border-t">
                   <h3 className="mb-3">ข้อมูลบัญชีธนาคาร</h3>
-                  {selectedItem.accountName && (
+                  {selectedItem.account_name && (
                     <div className="mb-2">
                       <Label className="text-gray-500">ชื่อบัญชี</Label>
-                      <p className="mt-1">{selectedItem.accountName}</p>
+                      <p className="mt-1">{selectedItem.account_name}</p>
                     </div>
                   )}
-                  {selectedItem.accountNumber && (
+                  {selectedItem.bank_account && (
                     <div className="mb-2">
                       <Label className="text-gray-500">เลขบัญชี</Label>
-                      <p className="mt-1">{selectedItem.accountNumber}</p>
+                      <p className="mt-1">{selectedItem.bank_account}</p>
                     </div>
                   )}
-                  {selectedItem.bankName && (
+                  {selectedItem.bank_name && (
                     <div>
                       <Label className="text-gray-500">ชื่อธนาคาร</Label>
-                      <p className="mt-1">{selectedItem.bankName}</p>
+                      <p className="mt-1">{selectedItem.bank_name}</p>
                     </div>
                   )}
                 </div>

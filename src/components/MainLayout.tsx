@@ -17,6 +17,7 @@ import {
   LogOut,
   Menu,
   ChevronRight,
+  Briefcase,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
@@ -31,6 +32,7 @@ import PaymentVoucherPage from './pages/PaymentVoucherPage';
 import ReceiveVoucherPage from './pages/ReceiveVoucherPage';
 import WithholdingTaxPage from './pages/WithholdingTaxPage';
 import UsersPage from './pages/UsersPage';
+import ProjectPage from './pages/ProjectPage';
 import CategoryPage from './pages/CategoryPage';
 import ProductPage from './pages/ProductPage';
 import CustomerPage from './pages/CustomerPage';
@@ -51,6 +53,7 @@ type PageType =
   | 'receive-voucher'
   | 'withholding-tax'
   | 'users'
+  | 'project'
   | 'category'
   | 'product'
   | 'customer'
@@ -78,6 +81,7 @@ export default function MainLayout({ user, onLogout }: MainLayoutProps) {
       title: 'ข้อมูลหลัก',
       items: [
         { id: 'users' as PageType, label: 'ผู้ใช้งาน', icon: Users },
+        { id: 'project' as PageType, label: 'โครงการ', icon: Briefcase },
         { id: 'category' as PageType, label: 'หมวดหมู่สินค้า/บริการ', icon: FolderTree },
         { id: 'product' as PageType, label: 'สินค้าและบริการ', icon: Package },
         { id: 'customer' as PageType, label: 'ลูกค้า/คู่ค้า', icon: Building },
@@ -119,6 +123,8 @@ export default function MainLayout({ user, onLogout }: MainLayoutProps) {
         return <WithholdingTaxPage userRole={user.role} />;
       case 'users':
         return <UsersPage userRole={user.role} />;
+      case 'project':
+        return <ProjectPage userRole={user.role} />;
       case 'category':
         return <CategoryPage userRole={user.role} />;
       case 'product':

@@ -33,31 +33,14 @@ import {
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { toast } from 'sonner';
+import { productService } from '../../services/productService';
+import type { Product, Category } from '../../services/productService';
 
 interface ProductPageProps {
   userRole: UserRole;
 }
 
-interface Category {
-  id: number;
-  name: string;
-}
-
-interface Product {
-  id: number;
-  code: string;
-  name: string;
-  category_id: number | null;
-  category?: Category;
-  price: number;
-  stock: number | null;
-  status: 'active' | 'inactive';
-}
-
 export default function ProductPage({ userRole }: ProductPageProps) {
-  const API_URL = 'http://127.0.0.1:8000/api/products';
-  const CATEGORY_URL = 'http://127.0.0.1:8000/api/categories';
-
   const [data, setData] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -85,55 +68,42 @@ export default function ProductPage({ userRole }: ProductPageProps) {
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch(API_URL);
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
-      } else {
-        toast.error('โหลดข้อมูลสินค้าไม่สำเร็จ');
-      }
+      const products = await productService.getAll();
+      setData(products);
     } catch (error) {
-      console.error('API Error:', error);
-      toast.error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้');
+      console.error('Error loading products:', error);
+      toast.error('ไม่สามารถโหลดข้อมูลสินค้าได้');
     }
   };
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch(CATEGORY_URL);
-      if (res.ok) {
-        const json = await res.json();
-        setCategories(json);
-      } else {
-        toast.error('โหลดหมวดหมู่ไม่สำเร็จ');
-      }
+      const categoryList = await productService.getCategories();
+      setCategories(categoryList);
     } catch (error) {
-      console.error('API Error:', error);
-      toast.error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้');
+      console.error('Error loading categories:', error);
+      toast.error('ไม่สามารถโหลดหมวดหมู่ได้');
     }
   };
 
- const handleAdd = async () => {
-  if (!formData.code || !formData.name || !formData.category_id) {
-    toast.error('กรุณากรอกข้อมูลให้ครบ');
-    return;
-  }
+  const handleAdd = async () => {
+    if (!formData.code || !formData.name || !formData.category_id) {
+      toast.error('กรุณากรอกข้อมูลให้ครบ');
+      return;
+    }
 
-  try {
-    const res = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    try {
+      const productData = {
         code: formData.code,
         name: formData.name,
-        category_id: Number(formData.category_id), // ✅ ตรงนี้ต้องใช้ category_id
-        price: Number(formData.price),
-        stock: formData.stock ? Number(formData.stock) : 0, // ✅ ป้องกัน null
+        category_id: Number(formData.category_id),
+        price: Number(formData.price) || 0,
+        stock: formData.stock ? Number(formData.stock) : null,
         status: formData.status,
-      }),
-    });
+      };
 
-    if (res.ok) {
+      await productService.create(productData);
+
       toast.success('เพิ่มสินค้า/บริการสำเร็จ');
       setIsAddDialogOpen(false);
       setFormData({
@@ -144,16 +114,13 @@ export default function ProductPage({ userRole }: ProductPageProps) {
         stock: '',
         status: 'active',
       });
-      fetchProducts();
-    } else {
-      const err = await res.json();
-      toast.error(err.message || 'เพิ่มไม่สำเร็จ');
+      await fetchProducts();
+    } catch (error) {
+      console.error('Error creating product:', error);
+      const errorMessage = (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'ไม่สามารถเพิ่มสินค้าได้';
+      toast.error(errorMessage);
     }
-  } catch (error) {
-    console.error('API Error:', error);
-    toast.error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้');
-  }
-};
+  };
 
 
   const handleEdit = (item: Product) => {
@@ -177,31 +144,25 @@ export default function ProductPage({ userRole }: ProductPageProps) {
     if (!selectedItem) return;
 
     try {
-      const res = await fetch(`${API_URL}/${selectedItem.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code: formData.code,
-          name: formData.name,
-          category_id: Number(formData.category_id),
-          price: Number(formData.price),
-          stock: formData.stock ? Number(formData.stock) : null,
-          status: formData.status,
-        }),
-      });
+      const productData = {
+        code: formData.code,
+        name: formData.name,
+        category_id: Number(formData.category_id),
+        price: Number(formData.price) || 0,
+        stock: formData.stock ? Number(formData.stock) : null,
+        status: formData.status,
+      };
 
-      if (res.ok) {
-        toast.success('แก้ไขข้อมูลสำเร็จ');
-        setIsEditDialogOpen(false);
-        setSelectedItem(null);
-        fetchProducts();
-      } else {
-        const err = await res.json();
-        toast.error(err.message || 'แก้ไขไม่สำเร็จ');
-      }
+      await productService.update(selectedItem.id, productData);
+
+      toast.success('แก้ไขข้อมูลสำเร็จ');
+      setIsEditDialogOpen(false);
+      setSelectedItem(null);
+      await fetchProducts();
     } catch (error) {
-      console.error('API Error:', error);
-      toast.error('เชื่อมต่อ API ไม่ได้');
+      console.error('Error updating product:', error);
+      const errorMessage = (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'ไม่สามารถแก้ไขสินค้าได้';
+      toast.error(errorMessage);
     }
   };
 
@@ -223,20 +184,18 @@ export default function ProductPage({ userRole }: ProductPageProps) {
     if (!selectedItem) return;
 
     try {
-      const res = await fetch(`${API_URL}/${selectedItem.id}`, { method: 'DELETE' });
-      if (res.ok) {
-        toast.success(`ลบ ${selectedItem.name} สำเร็จ`);
-        fetchProducts();
-      } else {
-        toast.error('ลบไม่สำเร็จ');
-      }
+      await productService.delete(selectedItem.id);
+      toast.success(`ลบ ${selectedItem.name} สำเร็จ`);
+      await fetchProducts();
+      setIsDeleteDialogOpen(false);
+      setSelectedItem(null);
     } catch (error) {
-      console.error('API Error:', error);
-      toast.error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้');
+      console.error('Error deleting product:', error);
+      const errorMessage = (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'ไม่สามารถลบสินค้าได้';
+      toast.error(errorMessage);
+      setIsDeleteDialogOpen(false);
+      setSelectedItem(null);
     }
-
-    setIsDeleteDialogOpen(false);
-    setSelectedItem(null);
   };
 
   const getStatusBadge = (status: string) => {
@@ -251,7 +210,7 @@ export default function ProductPage({ userRole }: ProductPageProps) {
     (item) =>
       item.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.category?.name?.toLowerCase() || '').includes(searchTerm.toLowerCase())
+      (item.category?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -491,7 +450,7 @@ export default function ProductPage({ userRole }: ProductPageProps) {
               </div>
               <div>
                 <Label className="text-gray-500">หมวดหมู่</Label>
-                <p className="mt-1">{selectedItem.category?.name || '-'}</p>
+                <p className="mt-1">{selectedItem.category || '-'}</p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

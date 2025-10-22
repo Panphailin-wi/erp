@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -19,19 +19,12 @@ import {
   TableHeader,
   TableRow,
 } from './ui/table';
-import { Plus, Trash2, ArrowLeft, Save } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, Save, Search, Users, X } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
-import { mockCustomers, mockProducts } from './mockData';
-import type { Customer, Product } from './mockData';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from './ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { customerService } from '../services/customerService';
+import type { Customer } from '../services/customerService';
+import { Badge } from './ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { toast } from 'sonner';
 
 interface TaxIncomeItem {
@@ -46,7 +39,6 @@ interface TaxIncomeItem {
 
 interface WithholdingTaxFormProps {
   initialData?: any;
-  customers?: Customer[];
   onSave: (data: any) => void;
   onCancel: () => void;
 }
@@ -107,7 +99,6 @@ const incomeTypes = [
 
 export default function WithholdingTaxForm({
   initialData,
-  customers = mockCustomers,
   onSave,
   onCancel,
 }: WithholdingTaxFormProps) {
@@ -138,16 +129,33 @@ export default function WithholdingTaxForm({
   const [notes, setNotes] = useState(initialData?.notes || '');
   const [openCustomer, setOpenCustomer] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerSearchTerm, setCustomerSearchTerm] = useState('');
+
+  // โหลดข้อมูลลูกค้าจากฐานข้อมูล
+  useEffect(() => {
+    const loadCustomers = async () => {
+      try {
+        const customerList = await customerService.getActiveCustomers();
+        setCustomers(customerList);
+      } catch (error) {
+        console.error('Error loading customers:', error);
+        toast.error('ไม่สามารถโหลดข้อมูลลูกค้าได้');
+      }
+    };
+    loadCustomers();
+  }, []);
 
   const handleSelectCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
     setRecipientName(customer.name);
-    setRecipientTaxId(customer.taxId || '');
+    setRecipientTaxId(customer.tax_id || '');
     setRecipientAddress(customer.address || '');
     if (customer.type === 'ลูกค้า' || customer.type === 'คู่ค้า') {
       setRecipientType('juristic');
     }
     setOpenCustomer(false);
+    toast.success(`เลือกลูกค้า: ${customer.name}`);
   };
 
   const handleAddItem = () => {
@@ -331,36 +339,42 @@ export default function WithholdingTaxForm({
             <CardContent className="p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2>ข้อมูลผู้รับเงิน</h2>
-                <Popover open={openCustomer} onOpenChange={setOpenCustomer}>
-                  <PopoverTrigger asChild>
-                    <Button type="button" variant="outline" size="sm">
-                      <Plus className="w-4 h-4 mr-2" />
-                      เลือกจากลูกค้าในระบบ
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80 p-0" align="end">
-                    <Command>
-                      <CommandInput placeholder="ค้นหาลูกค้า..." />
-                      <CommandList>
-                        <CommandEmpty>ไม่พบลูกค้า</CommandEmpty>
-                        <CommandGroup>
-                          {customers.map((customer) => (
-                            <CommandItem
-                              key={customer.id}
-                              onSelect={() => handleSelectCustomer(customer)}
-                            >
-                              <div className="flex flex-col">
-                                <span>{customer.name}</span>
-                                <span className="text-xs text-gray-500">{customer.code}</span>
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setOpenCustomer(true)}
+                  className="gap-2"
+                >
+                  <Users className="w-4 h-4" />
+                  เลือกจากลูกค้าในระบบ
+                </Button>
               </div>
+
+              {selectedCustomer && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Users className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <p className="font-medium text-blue-900">{selectedCustomer.name}</p>
+                      <p className="text-sm text-blue-600">รหัส: {selectedCustomer.code}</p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedCustomer(null);
+                      setRecipientName('');
+                      setRecipientTaxId('');
+                      setRecipientAddress('');
+                    }}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
 
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -696,6 +710,141 @@ export default function WithholdingTaxForm({
           </Card>
         </div>
       </form>
+
+      {/* Customer Selection Dialog */}
+      <Dialog open={openCustomer} onOpenChange={setOpenCustomer}>
+        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+          <DialogHeader className="space-y-3 pb-4 border-b">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Users className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl">เลือกลูกค้า/หน่วยงาน</DialogTitle>
+                <DialogDescription className="text-sm mt-1">
+                  เลือกลูกค้าหรือหน่วยงานเพื่อกรอกข้อมูลผู้รับเงินอัตโนมัติ
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-hidden flex flex-col space-y-4 py-4">
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute w-5 h-5 text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
+              <Input
+                placeholder="ค้นหาด้วยรหัสหรือชื่อลูกค้า..."
+                value={customerSearchTerm}
+                onChange={(e) => setCustomerSearchTerm(e.target.value)}
+                className="pl-10 h-11 text-base border-2 focus:border-blue-500"
+              />
+            </div>
+
+            {/* Customer List */}
+            <div className="flex-1 overflow-y-auto border-2 rounded-lg bg-gray-50">
+              {customers
+                .filter((c: Customer) =>
+                  c.name.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
+                  c.code.toLowerCase().includes(customerSearchTerm.toLowerCase())
+                )
+                .length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full py-12 text-gray-400">
+                  <Search className="w-12 h-12 mb-3 opacity-50" />
+                  <p className="text-lg">ไม่พบข้อมูลลูกค้า</p>
+                  <p className="text-sm">ลองค้นหาด้วยคำอื่น</p>
+                </div>
+              ) : (
+                <div className="grid gap-2 p-2">
+                  {customers
+                    .filter((c: Customer) =>
+                      c.name.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
+                      c.code.toLowerCase().includes(customerSearchTerm.toLowerCase())
+                    )
+                    .map((customer: Customer) => (
+                      <div
+                        key={customer.id}
+                        onClick={() => handleSelectCustomer(customer)}
+                        className="group bg-white border-2 border-gray-200 rounded-lg p-4 cursor-pointer transition-all duration-200 hover:border-blue-500 hover:shadow-lg hover:scale-[1.02]"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 space-y-2">
+                            <div className="flex items-center gap-3">
+                              <Badge variant="outline" className="text-xs font-mono bg-blue-50 text-blue-700 border-blue-300">
+                                {customer.code}
+                              </Badge>
+                              <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                                {customer.name}
+                              </h3>
+                            </div>
+
+                            <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-gray-600">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary" className="text-xs">
+                                  {customer.type}
+                                </Badge>
+                              </div>
+
+                              {customer.phone && (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-gray-400">📞</span>
+                                  <span>{customer.phone}</span>
+                                </div>
+                              )}
+
+                              {customer.tax_id && (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-gray-400">🆔</span>
+                                  <span>{customer.tax_id}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {customer.address && (
+                              <div className="text-sm text-gray-500 line-clamp-1">
+                                <span className="text-gray-400">📍</span> {customer.address}
+                              </div>
+                            )}
+                          </div>
+
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity bg-blue-600 hover:bg-blue-700"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectCustomer(customer);
+                            }}
+                          >
+                            เลือก
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer Info */}
+            <div className="flex items-center justify-between px-2 py-2 bg-blue-50 rounded-lg text-sm">
+              <span className="text-gray-600">
+                พบ {customers.filter((c: Customer) =>
+                  c.name.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
+                  c.code.toLowerCase().includes(customerSearchTerm.toLowerCase())
+                ).length} รายการ
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setOpenCustomer(false)}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                ปิด
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

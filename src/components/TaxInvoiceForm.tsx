@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -22,8 +22,9 @@ import {
 import { Plus, Trash2, Printer } from 'lucide-react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { mockCustomers, mockProducts } from './mockData';
-import type { Customer, Product } from './mockData';
+import { customerService } from '../services/customerService';
+import type { Customer } from '../services/customerService';
+import { toast } from 'sonner';
 
 
 
@@ -36,7 +37,6 @@ interface InvoiceItem {
 
 interface TaxInvoiceFormProps {
   documentType: 'invoice' | 'receipt';
-  customers?: Customer[];
   onSave: (data: any) => void;
   onCancel: () => void;
 }
@@ -67,17 +67,17 @@ const sourceDocuments = [
 
 export default function TaxInvoiceForm({
   documentType,
-  customers = mockCustomers,
   onSave,
   onCancel,
 }: TaxInvoiceFormProps) {
   const today = new Date().toISOString().split('T')[0];
-  
+
   const [docNumber, setDocNumber] = useState(() => {
     const prefix = documentType === 'invoice' ? 'TINV' : 'REC';
     return `${prefix}${Date.now().toString().slice(-6)}`;
   });
   const [docDate, setDocDate] = useState(today);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [selectedDocument, setSelectedDocument] = useState('');
   const [openCustomer, setOpenCustomer] = useState(false);
@@ -85,10 +85,24 @@ export default function TaxInvoiceForm({
   const [notes, setNotes] = useState('1. การชำระเงินภายในเวลาที่กำหนด 7 วัน ตั้งแต่วันที่ได้รับสินค้า\n2. การส่งมอบสินค้าต้องเป็นไปตามเงื่อนไขที่ระบุไว้ในใบสั่งซื้อนี้เท่านั้น คลาง POSTER ONLY การขนส่ง\n3. ค่าบริการจัดส่งคิดตามระยะทางจริงรวมภาษีมูลค่าเพิ่ม');
   const [discount, setDiscount] = useState(0);
   const [vatRate, setVatRate] = useState(7);
-  
+
   // ข้อมูลการจัดส่ง
   const [shippingAddress, setShippingAddress] = useState('');
   const [shippingPhone, setShippingPhone] = useState('');
+
+  // โหลดข้อมูลลูกค้าจากฐานข้อมูล
+  useEffect(() => {
+    const loadCustomers = async () => {
+      try {
+        const customerList = await customerService.getActiveCustomers();
+        setCustomers(customerList);
+      } catch (error) {
+        console.error('Error loading customers:', error);
+        toast.error('ไม่สามารถโหลดข้อมูลลูกค้าได้');
+      }
+    };
+    loadCustomers();
+  }, []);
 
   const getDocumentTitle = () => {
     return documentType === 'invoice' ? 'ใบแจ้งหนี้/ใบกำกับภาษี' : 'ใบเสร็จรับเงิน/ใบกำกับภาษี';
@@ -142,12 +156,12 @@ export default function TaxInvoiceForm({
 
   const handleSave = async () => {
     if (!selectedCustomer) {
-      alert('กรุณาเลือกลูกค้า');
+      toast.error('กรุณาเลือกลูกค้า');
       return;
     }
 
     if (items.length === 0) {
-      alert('กรุณาเพิ่มรายการสินค้า');
+      toast.error('กรุณาเพิ่มรายการสินค้า');
       return;
     }
 
@@ -182,18 +196,18 @@ export default function TaxInvoiceForm({
       const result = await response.json();
 
       if (response.ok && result.status === 'success') {
-       
+        toast.success('บันทึกเอกสารสำเร็จ');
         onSave(data);
       } else {
-        alert('เกิดข้อผิดพลาด: ' + (result.message || 'ไม่สามารถบันทึกได้'));
+        toast.error('เกิดข้อผิดพลาด: ' + (result.message || 'ไม่สามารถบันทึกได้'));
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+      toast.error('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
     }
   };
 
-  const activeCustomers = customers.filter((c) => c.status === 'active');
+  const activeCustomers = customers.filter((c: Customer) => c.status === 'active');
 
   return (
     <div className="min-h-screen p-6 space-y-6 bg-gray-50">
@@ -281,14 +295,14 @@ export default function TaxInvoiceForm({
                   <CommandList>
                     <CommandEmpty>ไม่พบข้อมูล</CommandEmpty>
                     <CommandGroup>
-                      {activeCustomers.map((customer) => (
+                      {activeCustomers.map((customer: Customer) => (
                         <CommandItem
                           key={customer.id}
                           value={`${customer.code} ${customer.name}`}
                           onSelect={() => {
                             setSelectedCustomer(customer);
                             setShippingAddress(customer.address || '');
-                            setShippingPhone(customer.contact || '');
+                            setShippingPhone(customer.phone || '');
                             setOpenCustomer(false);
                           }}
                           className="flex flex-col items-start py-3"
@@ -318,19 +332,16 @@ export default function TaxInvoiceForm({
                 <div>{selectedCustomer.name}</div>
               </div>
               <div className="space-y-1">
-                <div className="text-sm text-gray-600">ใบส่งสินค้าจาก</div>
-                <div>{selectedCustomer.branchName || '-'}</div>
+                <div className="text-sm text-gray-600">ประเภท</div>
+                <div>{selectedCustomer.type || '-'}</div>
               </div>
               <div className="space-y-1">
-                <div className="text-sm text-gray-600">ใบแปรรูปลูกค้าจาก</div>
-                <div>
-                  {selectedCustomer.name}
-                  {selectedCustomer.branchName && ` (${selectedCustomer.branchName})`}
-                </div>
+                <div className="text-sm text-gray-600">เบอร์โทร</div>
+                <div>{selectedCustomer.phone || '-'}</div>
               </div>
               <div className="space-y-1">
-                <div className="text-sm text-gray-600">หน่วยนับภาษี</div>
-                <div>{selectedCustomer.taxId || '-'}</div>
+                <div className="text-sm text-gray-600">เลขประจำตัวผู้เสียภาษี</div>
+                <div>{selectedCustomer.tax_id || '-'}</div>
               </div>
             </div>
           )}

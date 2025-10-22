@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/laragon/www/backend/database/migrations/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
