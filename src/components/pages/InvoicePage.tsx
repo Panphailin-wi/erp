@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '../ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Plus, Edit, Trash2, Eye, Search, FileText, Clock, CheckCircle2, XCircle, ArrowLeft, ChevronDown, DollarSign, Printer } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Search, FileText, Clock, CheckCircle2, XCircle, ArrowLeft, ChevronDown, DollarSign, Printer, Mail } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import TaxInvoiceForm from '../TaxInvoiceForm';
 import { mockCustomers } from '../mockData';
@@ -88,7 +88,9 @@ const fetchData = async () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Invoice | null>(null);
+  const [emailAddress, setEmailAddress] = useState('');
   const [showDocumentForm, setShowDocumentForm] = useState(false);
   const [formData, setFormData] = useState({
     customer: '',
@@ -285,6 +287,43 @@ const handleUpdate = async () => {
 
   const handleCancelDocument = () => {
     setShowDocumentForm(false);
+  };
+
+  const handleEmailClick = (item: Invoice) => {
+    setSelectedItem(item);
+    setEmailAddress('');
+    setIsEmailDialogOpen(true);
+  };
+
+  const handleSendEmail = async () => {
+    if (!selectedItem) return;
+
+    if (!emailAddress || !emailAddress.includes('@')) {
+      toast.error('กรุณากรอกอีเมลที่ถูกต้อง');
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/${selectedItem.id}/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailAddress }),
+      });
+
+      const result = await res.json();
+
+      if (res.ok) {
+        toast.success(result.message || 'ส่งอีเมลสำเร็จ');
+        setIsEmailDialogOpen(false);
+        setEmailAddress('');
+        setSelectedItem(null);
+      } else {
+        toast.error(result.message || 'ส่งอีเมลไม่สำเร็จ');
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ API');
+    }
   };
 
   const handlePrint = (item: Invoice) => {
@@ -568,6 +607,9 @@ const handleUpdate = async () => {
                       <Button variant="ghost" size="icon" onClick={() => handlePrint(item)}>
                         <Printer className="w-4 h-4" />
                       </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleEmailClick(item)} title="ส่งอีเมล">
+                        <Mail className="w-4 h-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -762,6 +804,44 @@ const handleUpdate = async () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Email Dialog */}
+      <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>ส่งใบแจ้งหนี้ทางอีเมล</DialogTitle>
+            <DialogDescription>
+              ส่งใบแจ้งหนี้ {selectedItem?.doc_number} ไปยังอีเมลที่ระบุ
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">ที่อยู่อีเมล</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="example@email.com"
+                value={emailAddress}
+                onChange={(e) => setEmailAddress(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSendEmail();
+                  }
+                }}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsEmailDialogOpen(false)}>
+                ยกเลิก
+              </Button>
+              <Button onClick={handleSendEmail}>
+                <Mail className="w-4 h-4 mr-2" />
+                ส่งอีเมล
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
