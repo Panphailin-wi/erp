@@ -52,9 +52,13 @@ export default function ProductPage({ userRole }: ProductPageProps) {
   const [formData, setFormData] = useState({
     code: '',
     name: '',
+    type: '',
     category_id: '',
-    price: '',
-    stock: '',
+    quantity: '',
+    unit: '',
+    purchase_price: '',
+    sale_price: '',
+    description: '',
     status: 'active' as 'active' | 'inactive',
   });
 
@@ -79,6 +83,7 @@ export default function ProductPage({ userRole }: ProductPageProps) {
   const fetchCategories = async () => {
     try {
       const categoryList = await productService.getCategories();
+      console.log('Loaded categories:', categoryList);
       setCategories(categoryList);
     } catch (error) {
       console.error('Error loading categories:', error);
@@ -87,7 +92,7 @@ export default function ProductPage({ userRole }: ProductPageProps) {
   };
 
   const handleAdd = async () => {
-    if (!formData.code || !formData.name || !formData.category_id) {
+    if (!formData.code || !formData.name) {
       toast.error('กรุณากรอกข้อมูลให้ครบ');
       return;
     }
@@ -96,9 +101,13 @@ export default function ProductPage({ userRole }: ProductPageProps) {
       const productData = {
         code: formData.code,
         name: formData.name,
-        category_id: Number(formData.category_id),
-        price: Number(formData.price) || 0,
-        stock: formData.stock ? Number(formData.stock) : null,
+        type: formData.type || null,
+        category_id: formData.category_id ? Number(formData.category_id) : null,
+        quantity: formData.quantity ? Number(formData.quantity) : null,
+        unit: formData.unit || null,
+        purchase_price: Number(formData.purchase_price) || 0,
+        sale_price: Number(formData.sale_price) || 0,
+        description: formData.description || null,
         status: formData.status,
       };
 
@@ -109,9 +118,13 @@ export default function ProductPage({ userRole }: ProductPageProps) {
       setFormData({
         code: '',
         name: '',
+        type: '',
         category_id: '',
-        price: '',
-        stock: '',
+        quantity: '',
+        unit: '',
+        purchase_price: '',
+        sale_price: '',
+        description: '',
         status: 'active',
       });
       await fetchProducts();
@@ -132,9 +145,13 @@ export default function ProductPage({ userRole }: ProductPageProps) {
     setFormData({
       code: item.code,
       name: item.name,
+      type: item.type || '',
       category_id: item.category_id ? String(item.category_id) : '',
-      price: String(item.price),
-      stock: item.stock !== null ? String(item.stock) : '',
+      quantity: item.quantity !== null ? String(item.quantity) : '',
+      unit: item.unit || '',
+      purchase_price: String(item.purchase_price),
+      sale_price: String(item.sale_price),
+      description: item.description || '',
       status: item.status,
     });
     setIsEditDialogOpen(true);
@@ -147,9 +164,13 @@ export default function ProductPage({ userRole }: ProductPageProps) {
       const productData = {
         code: formData.code,
         name: formData.name,
-        category_id: Number(formData.category_id),
-        price: Number(formData.price) || 0,
-        stock: formData.stock ? Number(formData.stock) : null,
+        type: formData.type || null,
+        category_id: formData.category_id ? Number(formData.category_id) : null,
+        quantity: formData.quantity ? Number(formData.quantity) : null,
+        unit: formData.unit || null,
+        purchase_price: Number(formData.purchase_price) || 0,
+        sale_price: Number(formData.sale_price) || 0,
+        description: formData.description || null,
         status: formData.status,
       };
 
@@ -243,9 +264,12 @@ export default function ProductPage({ userRole }: ProductPageProps) {
               <TableRow>
                 <TableHead>รหัส</TableHead>
                 <TableHead>ชื่อสินค้า/บริการ</TableHead>
+                <TableHead>ประเภท</TableHead>
                 <TableHead>หมวดหมู่</TableHead>
-                <TableHead className="text-right">ราคา</TableHead>
-                <TableHead className="text-right">คงเหลือ</TableHead>
+                <TableHead className="text-right">จำนวน</TableHead>
+                <TableHead>หน่วยนับ</TableHead>
+                <TableHead className="text-right">ราคาซื้อ</TableHead>
+                <TableHead className="text-right">ราคาขาย</TableHead>
                 <TableHead>สถานะ</TableHead>
                 <TableHead className="text-center">จัดการ</TableHead>
               </TableRow>
@@ -255,15 +279,18 @@ export default function ProductPage({ userRole }: ProductPageProps) {
                 <TableRow key={item.id}>
                   <TableCell>{item.code}</TableCell>
                   <TableCell>{item.name}</TableCell>
+                  <TableCell>{item.type || '-'}</TableCell>
                   <TableCell>{item.category || '-'}</TableCell>
-                  <TableCell className="text-right">฿{item.price.toLocaleString()}</TableCell>
                   <TableCell className="text-right">
-                    {item.stock !== null ? (
-                      <span className={item.stock === 0 ? 'text-red-500' : ''}>{item.stock}</span>
+                    {item.quantity !== null ? (
+                      <span className={item.quantity === 0 ? 'text-red-500' : ''}>{item.quantity}</span>
                     ) : (
                       '-'
                     )}
                   </TableCell>
+                  <TableCell>{item.unit || '-'}</TableCell>
+                  <TableCell className="text-right">฿{(item.purchase_price || 0).toLocaleString()}</TableCell>
+                  <TableCell className="text-right">฿{(item.sale_price || 0).toLocaleString()}</TableCell>
                   <TableCell>{getStatusBadge(item.status)}</TableCell>
                   <TableCell>
                     <div className="flex items-center justify-center gap-2">
@@ -287,7 +314,7 @@ export default function ProductPage({ userRole }: ProductPageProps) {
 
       {/* Add Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>เพิ่มสินค้า/บริการใหม่</DialogTitle>
             <DialogDescription>กรอกข้อมูลสินค้า/บริการ</DialogDescription>
@@ -295,7 +322,7 @@ export default function ProductPage({ userRole }: ProductPageProps) {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>รหัส</Label>
+                <Label>รหัสสินค้า</Label>
                 <Input
                   placeholder="PRD-XXX"
                   value={formData.code}
@@ -311,47 +338,109 @@ export default function ProductPage({ userRole }: ProductPageProps) {
                 />
               </div>
             </div>
-            <div className="space-y-2">
-            <Label>หมวดหมู่</Label>
-<Select
-  value={formData.category_id}
-  onValueChange={(value) => setFormData({ ...formData, category_id: value })}
->
-  <SelectTrigger>
-    <SelectValue placeholder="เลือกหมวดหมู่" />
-  </SelectTrigger>
-  <SelectContent>
-    {categories.map((cat) => (
-      <SelectItem key={cat.id} value={cat.id.toString()}>
-        {cat.name}
-      </SelectItem>
-    ))}
-  </SelectContent>
-</Select>
 
-
-
-            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>ราคา (บาท)</Label>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                />
+                <Label>ประเภท</Label>
+                <Select
+                  value={formData.type}
+                  onValueChange={(value) => setFormData({ ...formData, type: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="เลือกประเภท" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="สินค้า">สินค้า</SelectItem>
+                    <SelectItem value="บริการ">บริการ</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <Label>คงเหลือ</Label>
+                <Label>หมวดหมู่</Label>
+                <Select
+                  value={formData.category_id}
+                  onValueChange={(value) => setFormData({ ...formData, category_id: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="เลือกหมวดหมู่" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id.toString()}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>จำนวน</Label>
                 <Input
                   type="number"
                   placeholder="0"
-                  value={formData.stock}
-                  onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                  value={formData.quantity}
+                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>หน่วยนับ</Label>
+                <Input
+                  placeholder="ชิ้น, กล่อง, ชุด..."
+                  value={formData.unit}
+                  onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                 />
               </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>ราคาซื้อ (บาท)</Label>
+                <Input
+                  type="number"
+                  placeholder="0.00"
+                  value={formData.purchase_price}
+                  onChange={(e) => setFormData({ ...formData, purchase_price: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>ราคาขาย (บาท)</Label>
+                <Input
+                  type="number"
+                  placeholder="0.00"
+                  value={formData.sale_price}
+                  onChange={(e) => setFormData({ ...formData, sale_price: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>รายละเอียด</Label>
+              <Input
+                placeholder="รายละเอียดสินค้า/บริการ..."
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>สถานะ</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value: 'active' | 'inactive') => setFormData({ ...formData, status: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">ใช้งาน</SelectItem>
+                  <SelectItem value="inactive">ไม่ใช้งาน</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>ยกเลิก</Button>
               <Button onClick={handleAdd}>บันทึก</Button>
@@ -362,7 +451,7 @@ export default function ProductPage({ userRole }: ProductPageProps) {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>แก้ไขสินค้า/บริการ</DialogTitle>
             <DialogDescription>แก้ไขข้อมูล {selectedItem?.name}</DialogDescription>
@@ -370,7 +459,7 @@ export default function ProductPage({ userRole }: ProductPageProps) {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>รหัส</Label>
+                <Label>รหัสสินค้า</Label>
                 <Input
                   placeholder="PRD-XXX"
                   value={formData.code}
@@ -386,41 +475,109 @@ export default function ProductPage({ userRole }: ProductPageProps) {
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>หมวดหมู่</Label>
-              <Select value={formData.category_id} onValueChange={(value) => setFormData({ ...formData, category_id: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="เลือกหมวดหมู่" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id.toString()}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>ราคา (บาท)</Label>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                />
+                <Label>ประเภท</Label>
+                <Select
+                  value={formData.type}
+                  onValueChange={(value) => setFormData({ ...formData, type: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="เลือกประเภท" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="สินค้า">สินค้า</SelectItem>
+                    <SelectItem value="บริการ">บริการ</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <Label>คงเหลือ</Label>
+                <Label>หมวดหมู่</Label>
+                <Select
+                  value={formData.category_id}
+                  onValueChange={(value) => setFormData({ ...formData, category_id: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="เลือกหมวดหมู่" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id.toString()}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>จำนวน</Label>
                 <Input
                   type="number"
                   placeholder="0"
-                  value={formData.stock}
-                  onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                  value={formData.quantity}
+                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>หน่วยนับ</Label>
+                <Input
+                  placeholder="ชิ้น, กล่อง, ชุด..."
+                  value={formData.unit}
+                  onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                 />
               </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>ราคาซื้อ (บาท)</Label>
+                <Input
+                  type="number"
+                  placeholder="0.00"
+                  value={formData.purchase_price}
+                  onChange={(e) => setFormData({ ...formData, purchase_price: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>ราคาขาย (บาท)</Label>
+                <Input
+                  type="number"
+                  placeholder="0.00"
+                  value={formData.sale_price}
+                  onChange={(e) => setFormData({ ...formData, sale_price: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>รายละเอียด</Label>
+              <Input
+                placeholder="รายละเอียดสินค้า/บริการ..."
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>สถานะ</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value: 'active' | 'inactive') => setFormData({ ...formData, status: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">ใช้งาน</SelectItem>
+                  <SelectItem value="inactive">ไม่ใช้งาน</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>ยกเลิก</Button>
               <Button onClick={handleUpdate}>บันทึกการเปลี่ยนแปลง</Button>
@@ -431,7 +588,7 @@ export default function ProductPage({ userRole }: ProductPageProps) {
 
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>รายละเอียดสินค้า/บริการ</DialogTitle>
             <DialogDescription>{selectedItem?.code}</DialogDescription>
@@ -440,7 +597,7 @@ export default function ProductPage({ userRole }: ProductPageProps) {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-gray-500">รหัส</Label>
+                  <Label className="text-gray-500">รหัสสินค้า</Label>
                   <p className="mt-1">{selectedItem.code}</p>
                 </div>
                 <div>
@@ -448,21 +605,39 @@ export default function ProductPage({ userRole }: ProductPageProps) {
                   <p className="mt-1">{selectedItem.name}</p>
                 </div>
               </div>
-              <div>
-                <Label className="text-gray-500">หมวดหมู่</Label>
-                <p className="mt-1">{selectedItem.category || '-'}</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-gray-500">ประเภท</Label>
+                  <p className="mt-1">{selectedItem.type || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">หมวดหมู่</Label>
+                  <p className="mt-1">{selectedItem.category || '-'}</p>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-gray-500">ราคา</Label>
-                  <p className="mt-1">฿{selectedItem.price.toLocaleString()}</p>
+                  <Label className="text-gray-500">จำนวน</Label>
+                  <p className="mt-1">{selectedItem.quantity !== null ? selectedItem.quantity : '-'}</p>
                 </div>
                 <div>
-                  <Label className="text-gray-500">คงเหลือ</Label>
-                  <p className="mt-1">
-                    {selectedItem.stock !== null ? selectedItem.stock : '-'}
-                  </p>
+                  <Label className="text-gray-500">หน่วยนับ</Label>
+                  <p className="mt-1">{selectedItem.unit || '-'}</p>
                 </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-gray-500">ราคาซื้อ</Label>
+                  <p className="mt-1">฿{(selectedItem.purchase_price || 0).toLocaleString()}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">ราคาขาย</Label>
+                  <p className="mt-1">฿{(selectedItem.sale_price || 0).toLocaleString()}</p>
+                </div>
+              </div>
+              <div>
+                <Label className="text-gray-500">รายละเอียด</Label>
+                <p className="mt-1">{selectedItem.description || '-'}</p>
               </div>
               <div>
                 <Label className="text-gray-500">สถานะ</Label>

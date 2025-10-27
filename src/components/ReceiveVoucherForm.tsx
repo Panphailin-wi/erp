@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from './ui/table';
-import { Plus, Trash2, Printer } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { customerService } from '../services/customerService';
@@ -28,80 +28,44 @@ import { productService } from '../services/productService';
 import type { Product } from '../services/productService';
 import { toast } from 'sonner';
 
-
-
-
-interface InvoiceItem {
+interface VoucherItem {
   id: string;
   productId?: number;
   description: string;
   amount: number;
 }
 
-interface TaxInvoiceFormProps {
-  documentType: 'invoice' | 'receipt';
+interface ReceiveVoucherFormProps {
   onSave: (data: any) => void;
   onCancel: () => void;
 }
 
-
-
-// เอกสารต้นฉบับที่สามารถเลือกได้
-const sourceDocuments = [
-  {
-    id: '1',
-    code: 'QT250001',
-    name: 'ใบเสนอราคา - บริษัท ABC จำกัด',
-    customer: 'บริษัท ABC จำกัด',
-  },
-  {
-    id: '2',
-    code: 'PO250002',
-    name: 'ใบสั่งซื้อ - บริษัท XYZ จำกัด',
-    customer: 'บริษัท XYZ จำกัด',
-  },
-  {
-    id: '3',
-    code: 'INV250010',
-    name: 'ใบแจ้งหนี้ - ร้าน DEF การค้า',
-    customer: 'ร้าน DEF การค้า',
-  },
-];
-
-export default function TaxInvoiceForm({
-  documentType,
+export default function ReceiveVoucherForm({
   onSave,
   onCancel,
-}: TaxInvoiceFormProps) {
+}: ReceiveVoucherFormProps) {
   const today = new Date().toISOString().split('T')[0];
 
-  const [docNumber, setDocNumber] = useState(() => {
-    const prefix = documentType === 'invoice' ? 'TINV' : 'REC';
-    return `${prefix}${Date.now().toString().slice(-6)}`;
+  const [voucherNo, setVoucherNo] = useState(() => {
+    return `RV${Date.now().toString().slice(-6)}`;
   });
-  const [docDate, setDocDate] = useState(today);
+  const [voucherDate, setVoucherDate] = useState(today);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [selectedDocument, setSelectedDocument] = useState('');
   const [openCustomer, setOpenCustomer] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
-  const [items, setItems] = useState<InvoiceItem[]>([]);
-  const [notes, setNotes] = useState('1. การชำระเงินภายในเวลาที่กำหนด 7 วัน ตั้งแต่วันที่ได้รับสินค้า\n2. การส่งมอบสินค้าต้องเป็นไปตามเงื่อนไขที่ระบุไว้ในใบสั่งซื้อนี้เท่านั้น คลาง POSTER ONLY การขนส่ง\n3. ค่าบริการจัดส่งคิดตามระยะทางจริงรวมภาษีมูลค่าเพิ่ม');
+  const [items, setItems] = useState<VoucherItem[]>([]);
+  const [notes, setNotes] = useState('');
   const [discount, setDiscount] = useState(0);
   const [vatRate, setVatRate] = useState(7);
 
-  // ข้อมูลการจัดส่ง
-  const [shippingAddress, setShippingAddress] = useState('');
-  const [shippingPhone, setShippingPhone] = useState('');
-
-  // พนักงานขาย
-  const [salesperson, setSalesperson] = useState('');
-
-  // วันที่ชำระเงิน
+  // ข้อมูลเพิ่มเติม
+  const [paymentMethod, setPaymentMethod] = useState('โอนเงิน');
   const [paymentDate, setPaymentDate] = useState(today);
-
-  // การคิดภาษี
   const [taxType, setTaxType] = useState<'excluding' | 'including' | 'none'>('excluding');
+  const [salesperson, setSalesperson] = useState('');
+  const [withholdingTaxNo, setWithholdingTaxNo] = useState('');
+  const [withholdingTaxAmount, setWithholdingTaxAmount] = useState(0);
 
   // โหลดข้อมูลลูกค้าและสินค้าจากฐานข้อมูล
   useEffect(() => {
@@ -121,12 +85,8 @@ export default function TaxInvoiceForm({
     loadData();
   }, []);
 
-  const getDocumentTitle = () => {
-    return documentType === 'invoice' ? 'ใบแจ้งหนี้/ใบกำกับภาษี' : 'ใบเสร็จรับเงิน/ใบกำกับภาษี';
-  };
-
   const handleAddItem = () => {
-    const newItem: InvoiceItem = {
+    const newItem: VoucherItem = {
       id: Date.now().toString(),
       description: '',
       amount: 0,
@@ -142,28 +102,23 @@ export default function TaxInvoiceForm({
               ...item,
               productId: product.id,
               description: product.name,
-              amount: Number(product.price) || 0,
+              amount: product.sale_price,
             }
           : item
       )
     );
   };
 
-  const handleRemoveItem = (id: string) => {
-    setItems(items.filter((item) => item.id !== id));
-  };
-
-  const handleUpdateItem = (id: string, field: 'description' | 'amount', value: string | number) => {
+  const handleItemChange = (itemId: string, field: keyof VoucherItem, value: any) => {
     setItems(
       items.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              [field]: value,
-            }
-          : item
+        item.id === itemId ? { ...item, [field]: value } : item
       )
     );
+  };
+
+  const handleRemoveItem = (itemId: string) => {
+    setItems(items.filter((item) => item.id !== itemId));
   };
 
   const calculateSubtotal = () => {
@@ -183,44 +138,46 @@ export default function TaxInvoiceForm({
   };
 
   const calculateGrandTotal = () => {
-    return calculateAfterDiscount() + calculateVat();
+    return calculateAfterDiscount() + calculateVat() - withholdingTaxAmount;
   };
 
   const handleSave = async () => {
     if (!selectedCustomer) {
-      toast.error('กรุณาเลือกลูกค้า');
+      toast.error('กรุณาเลือกลูกค้า/ผู้จ่ายเงิน');
       return;
     }
 
     if (items.length === 0) {
-      toast.error('กรุณาเพิ่มรายการสินค้า');
+      toast.error('กรุณาเพิ่มรายการ');
       return;
     }
 
     const data = {
-      documentType: documentType,
-      docNumber,
-      docDate,
-      paymentDate,
-      taxType,
+      voucher_no: voucherNo,
+      date: voucherDate,
+      payer: selectedCustomer.name,
+      payer_id: selectedCustomer.id,
+      payment_method: paymentMethod,
+      payment_date: paymentDate,
+      tax_type: taxType,
       salesperson,
-      customer: selectedCustomer,
-      selectedDocument,
+      withholding_tax_no: withholdingTaxNo || null,
+      withholding_tax_amount: withholdingTaxAmount,
       items,
       notes,
       discount,
-      vatRate,
-      shippingAddress,
-      shippingPhone,
+      vat_rate: vatRate,
       subtotal: calculateSubtotal(),
-      discountAmount: calculateDiscountAmount(),
-      afterDiscount: calculateAfterDiscount(),
+      discount_amount: calculateDiscountAmount(),
+      after_discount: calculateAfterDiscount(),
       vat: calculateVat(),
-      grandTotal: calculateGrandTotal(),
+      grand_total: calculateGrandTotal(),
+      amount: calculateGrandTotal(),
+      status: 'รอรับ',
     };
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/tax-invoices', {
+      const response = await fetch('http://127.0.0.1:8000/api/receive-vouchers', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -228,128 +185,90 @@ export default function TaxInvoiceForm({
         body: JSON.stringify(data),
       });
 
-      const result = await response.json();
-
-      if (response.ok && result.status === 'success') {
-        toast.success('บันทึกเอกสารสำเร็จ');
-        onSave(data);
-      } else {
-        toast.error('เกิดข้อผิดพลาด: ' + (result.message || 'ไม่สามารถบันทึกได้'));
+      if (!response.ok) {
+        throw new Error('Failed to save receive voucher');
       }
+
+      toast.success('บันทึกใบสำคัญรับเงินสำเร็จ');
+      onSave(data);
     } catch (error) {
-      console.error('Error:', error);
-      toast.error('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+      console.error('Error saving receive voucher:', error);
+      toast.error('เกิดข้อผิดพลาดในการบันทึก');
     }
   };
 
-  const activeCustomers = customers.filter((c: Customer) => c.status === 'active');
-
   return (
-    <div className="min-h-screen p-6 space-y-6 bg-gray-50">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl">{getDocumentTitle()}</h2>
-        <Button variant="outline" className="text-cyan-500 border-cyan-500">
-          NEW DELIVERY
-        </Button>
-      </div>
-
+    <div className="w-full">
       <Card>
         <CardContent className="p-6 space-y-6">
+          {/* Header */}
+          <div className="pb-4 border-b">
+            <h2 className="text-2xl font-bold text-cyan-600">
+              สร้างใบสำคัญรับเงินใหม่
+            </h2>
+            <p className="text-sm text-gray-500">กรอกข้อมูลใบสำคัญรับเงิน</p>
+          </div>
+
           {/* Document Info */}
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>เลขที่เอกสาร</Label>
-              <Input value={docNumber} onChange={(e) => setDocNumber(e.target.value)} />
+              <Input value={voucherNo} onChange={(e) => setVoucherNo(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>แท้น</Label>
-              <Select defaultValue="แท้น">
+              <Label>วันที่เอกสาร</Label>
+              <Input type="date" value={voucherDate} onChange={(e) => setVoucherDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>วิธีการชำระเงิน</Label>
+              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="แท้น">แท้น</SelectItem>
-                  <SelectItem value="สำเนา">สำเนา</SelectItem>
+                  <SelectItem value="โอนเงิน">โอนเงิน</SelectItem>
+                  <SelectItem value="เงินสด">เงินสด</SelectItem>
+                  <SelectItem value="เช็ค">เช็ค</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>วันที่เริ่มต้น</Label>
-              <Input type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} />
-            </div>
-          </div>
-
-          {/* Source Document Selection */}
-          <div className="space-y-2">
-            <Label>เลือกเอกสาร</Label>
-            <Select value={selectedDocument} onValueChange={setSelectedDocument}>
-              <SelectTrigger>
-                <SelectValue placeholder="เลือกเอกสารต้นทาง..." />
-              </SelectTrigger>
-              <SelectContent>
-                {sourceDocuments.map((doc) => (
-                  <SelectItem key={doc.id} value={doc.id}>
-                    {doc.code} - {doc.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           {/* Customer Selection */}
           <div className="space-y-2">
-            <Label>เลือกลูกค้า</Label>
+            <Label>ลูกค้า/ผู้จ่ายเงิน</Label>
             <Popover open={openCustomer} onOpenChange={setOpenCustomer}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
                   role="combobox"
                   aria-expanded={openCustomer}
-                  className="w-full justify-between h-auto min-h-[40px]"
+                  className="justify-between w-full"
                 >
-                  {selectedCustomer ? (
-                    <div className="w-full text-left">
-                      <div className="flex gap-2">
-                        <span className="text-blue-600">{selectedCustomer.code}</span>
-                        <span>-</span>
-                        <span>{selectedCustomer.name}</span>
-                      </div>
-                      {selectedCustomer.address && (
-                        <div className="mt-1 text-sm text-gray-500">{selectedCustomer.address}</div>
-                      )}
-                    </div>
-                  ) : (
-                    'เลือกลูกค้า...'
-                  )}
+                  {selectedCustomer ? selectedCustomer.name : 'เลือกลูกค้า...'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[600px] p-0">
                 <Command>
                   <CommandInput placeholder="ค้นหาลูกค้า..." />
                   <CommandList>
-                    <CommandEmpty>ไม่พบข้อมูล</CommandEmpty>
+                    <CommandEmpty>ไม่พบลูกค้า</CommandEmpty>
                     <CommandGroup>
-                      {activeCustomers.map((customer: Customer) => (
+                      {customers.map((customer) => (
                         <CommandItem
                           key={customer.id}
-                          value={`${customer.code} ${customer.name}`}
+                          value={customer.name}
                           onSelect={() => {
                             setSelectedCustomer(customer);
-                            setShippingAddress(customer.address || '');
-                            setShippingPhone(customer.phone || '');
                             setOpenCustomer(false);
                           }}
-                          className="flex flex-col items-start py-3"
                         >
-                          <div className="flex gap-2">
-                            <span className="text-blue-600">{customer.code}</span>
-                            <span>-</span>
-                            <span>{customer.name}</span>
+                          <div>
+                            <div className="font-medium">{customer.name}</div>
+                            <div className="text-sm text-gray-500">
+                              {customer.code} | {customer.phone || '-'}
+                            </div>
                           </div>
-                          {customer.address && (
-                            <div className="mt-1 text-sm text-gray-500">{customer.address}</div>
-                          )}
                         </CommandItem>
                       ))}
                     </CommandGroup>
@@ -361,49 +280,27 @@ export default function TaxInvoiceForm({
 
           {/* Customer Details */}
           {selectedCustomer && (
-            <div className="grid grid-cols-4 gap-4 p-4 rounded-lg bg-blue-50">
-              <div className="space-y-1">
-                <div className="text-sm text-gray-600">ชื่อลูกค้า</div>
-                <div>{selectedCustomer.name}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-sm text-gray-600">ประเภท</div>
-                <div>{selectedCustomer.type || '-'}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-sm text-gray-600">เบอร์โทร</div>
-                <div>{selectedCustomer.phone || '-'}</div>
-              </div>
+            <div className="p-4 space-y-2 border rounded-lg bg-gray-50">
               <div className="space-y-1">
                 <div className="text-sm text-gray-600">เลขประจำตัวผู้เสียภาษี</div>
                 <div>{selectedCustomer.tax_id || '-'}</div>
               </div>
+              <div className="space-y-1">
+                <div className="text-sm text-gray-600">ที่อยู่</div>
+                <div>{selectedCustomer.address || '-'}</div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <div className="text-sm text-gray-600">เบอร์โทร</div>
+                  <div>{selectedCustomer.phone || '-'}</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm text-gray-600">อีเมล</div>
+                  <div>{selectedCustomer.email || '-'}</div>
+                </div>
+              </div>
             </div>
           )}
-
-          {/* Shipping Information */}
-          <div className="space-y-4">
-            <Label className="text-base">ข้อมูลการจัดส่งสินค้า</Label>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>ที่อยู่</Label>
-                <Textarea
-                  value={shippingAddress}
-                  onChange={(e) => setShippingAddress(e.target.value)}
-                  placeholder="ที่อยู่จัดส่ง..."
-                  rows={3}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>เบอร์โทร</Label>
-                <Input
-                  value={shippingPhone}
-                  onChange={(e) => setShippingPhone(e.target.value)}
-                  placeholder="เบอร์โทรศัพท์..."
-                />
-              </div>
-            </div>
-          </div>
 
           {/* Items Table */}
           <div className="space-y-2">
@@ -419,10 +316,10 @@ export default function TaxInvoiceForm({
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-100">
-                    <TableHead className="w-[80px] text-center">ลำดับ (SRNO)</TableHead>
-                    <TableHead>สินค้า</TableHead>
-                    <TableHead className="w-[150px] text-right">ราคารวม (จำนวนเงิน)</TableHead>
-                    <TableHead className="w-[100px] text-right">รายการลบ (ใบสำคัญถอน)</TableHead>
+                    <TableHead className="w-[80px] text-center">#</TableHead>
+                    <TableHead>รายการ</TableHead>
+                    <TableHead className="w-[150px] text-right">จำนวนเงิน</TableHead>
+                    <TableHead className="w-[100px] text-center">ลบ</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -453,17 +350,16 @@ export default function TaxInvoiceForm({
                               <SelectContent>
                                 {products.map((product) => (
                                   <SelectItem key={product.id} value={product.id.toString()}>
-                                    {product.name} - ฿{Number(product.price).toLocaleString()}
+                                    {product.name} - ฿{Number(product.sale_price).toLocaleString()}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
-                            <Input
+                            <Textarea
                               value={item.description}
-                              onChange={(e) =>
-                                handleUpdateItem(item.id, 'description', e.target.value)
-                              }
-                              placeholder="หรือพิมพ์รายละเอียดเอง..."
+                              onChange={(e) => handleItemChange(item.id, 'description', e.target.value)}
+                              placeholder="รายละเอียด..."
+                              rows={2}
                             />
                           </div>
                         </TableCell>
@@ -471,20 +367,20 @@ export default function TaxInvoiceForm({
                           <Input
                             type="number"
                             value={item.amount}
-                            onChange={(e) =>
-                              handleUpdateItem(item.id, 'amount', parseFloat(e.target.value) || 0)
-                            }
+                            onChange={(e) => handleItemChange(item.id, 'amount', parseFloat(e.target.value) || 0)}
                             className="text-right"
-                            placeholder="0.00"
+                            min="0"
+                            step="0.01"
                           />
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-center">
                           <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => handleRemoveItem(item.id)}
+                            className="text-red-500 hover:text-red-700"
                           >
-                            <Trash2 className="w-4 h-4 text-red-500" />
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -498,11 +394,7 @@ export default function TaxInvoiceForm({
           {/* Additional Fields */}
           <div className="grid grid-cols-4 gap-4">
             <div className="space-y-2">
-              <Label>วันที่เอกสาร</Label>
-              <Input type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>วันที่ชำระเงิน</Label>
+              <Label>วันที่รับเงิน</Label>
               <Input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
             </div>
             <div className="space-y-2">
@@ -519,32 +411,52 @@ export default function TaxInvoiceForm({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>พนักงานขาย</Label>
+              <Label>เลขที่หัก ณ ที่จ่าย</Label>
               <Input
-                value={salesperson}
-                onChange={(e) => setSalesperson(e.target.value)}
-                placeholder="ชื่อพนักงานขาย..."
+                value={withholdingTaxNo}
+                onChange={(e) => setWithholdingTaxNo(e.target.value)}
+                placeholder="เลขที่หักภาษี..."
               />
             </div>
+            <div className="space-y-2">
+              <Label>จำนวนเงินหัก ณ ที่จ่าย</Label>
+              <Input
+                type="number"
+                value={withholdingTaxAmount}
+                onChange={(e) => setWithholdingTaxAmount(parseFloat(e.target.value) || 0)}
+                placeholder="0.00"
+                min="0"
+                step="0.01"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>พนักงานขาย</Label>
+            <Input
+              value={salesperson}
+              onChange={(e) => setSalesperson(e.target.value)}
+              placeholder="ชื่อพนักงานขาย..."
+            />
           </div>
 
           {/* Notes and Summary */}
           <div className="grid grid-cols-2 gap-6">
             {/* Notes */}
             <div className="space-y-2">
-              <Label>โน๊ต</Label>
+              <Label>หมายเหตุ</Label>
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={8}
-                placeholder="เงื่อนไขและข้อกำหนด..."
+                placeholder="หมายเหตุ..."
               />
             </div>
 
             {/* Summary */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span>ยอด</span>
+                <span>ยอดรวม</span>
                 <span>{calculateSubtotal().toLocaleString()} บาท</span>
               </div>
               <div className="flex items-center justify-between gap-4">
@@ -564,13 +476,9 @@ export default function TaxInvoiceForm({
                   </span>
                 </div>
               </div>
-              <div className="flex items-center justify-between">
-                <span>กำไรขั้นต้น %</span>
-                <span>0.00</span>
-              </div>
               <div className="pt-3 border-t">
                 <div className="flex items-center justify-between">
-                  <span>ยอดรวมก่อนภาษีมูลค่าเพิ่ม</span>
+                  <span>ยอดรวมหลังหักส่วนลด</span>
                   <span>{calculateAfterDiscount().toLocaleString()} บาท</span>
                 </div>
               </div>
@@ -578,9 +486,13 @@ export default function TaxInvoiceForm({
                 <span>ภาษีมูลค่าเพิ่ม {vatRate}%</span>
                 <span>{calculateVat().toLocaleString()} บาท</span>
               </div>
+              <div className="flex items-center justify-between text-red-600">
+                <span>หัก ณ ที่จ่าย</span>
+                <span>-{withholdingTaxAmount.toLocaleString()} บาท</span>
+              </div>
               <div className="pt-3 border-t">
-                <div className="flex items-center justify-between text-lg">
-                  <span>ยอดรวมทั้งสิ้น</span>
+                <div className="flex items-center justify-between text-lg font-bold">
+                  <span>ยอดรวมสุทธิ</span>
                   <span className="text-cyan-600">
                     {calculateGrandTotal().toLocaleString()} บาท
                   </span>

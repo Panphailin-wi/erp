@@ -9,28 +9,43 @@ export interface Product {
   id: number;
   code: string;
   name: string;
+  type: string | null;
   category_id: number | null;
   category: string;
+  quantity: number | null;
+  unit: string | null;
+  purchase_price: number;
+  sale_price: number;
+  description: string | null;
+  status: 'active' | 'inactive';
+  // Legacy field for backward compatibility
   price: number;
   stock: number | null;
-  status: 'active' | 'inactive';
 }
 
 export interface CreateProductData {
   code: string;
   name: string;
+  type?: string | null;
   category_id?: number | null;
-  price?: number;
-  stock?: number | null;
+  quantity?: number | null;
+  unit?: string | null;
+  purchase_price?: number;
+  sale_price?: number;
+  description?: string | null;
   status: 'active' | 'inactive';
 }
 
 export interface UpdateProductData {
   code?: string;
   name?: string;
+  type?: string | null;
   category_id?: number | null;
-  price?: number;
-  stock?: number | null;
+  quantity?: number | null;
+  unit?: string | null;
+  purchase_price?: number;
+  sale_price?: number;
+  description?: string | null;
   status?: 'active' | 'inactive';
 }
 

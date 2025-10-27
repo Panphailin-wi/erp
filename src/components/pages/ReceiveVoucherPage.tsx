@@ -3,6 +3,7 @@ import axios from 'axios';
 import type { UserRole } from '../../types';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import ReceiveVoucherForm from '../ReceiveVoucherForm';
 import {
   Table,
   TableBody,
@@ -62,13 +63,6 @@ interface ReceiveVoucher {
 
 const API_URL = 'http://127.0.0.1:8000/api/receive-vouchers';
 
-const generateVoucherNumber = (count: number) => {
-  const date = new Date();
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  return `RV-${year}${month}-${String(count + 1).padStart(3, '0')}`;
-};
-
 export default function ReceiveVoucherPage({ userRole }: ReceiveVoucherPageProps) {
   const [data, setData] = useState<ReceiveVoucher[]>([]);
   const [loading, setLoading] = useState(true);
@@ -119,33 +113,6 @@ export default function ReceiveVoucherPage({ userRole }: ReceiveVoucherPageProps
     รออนุมัติ: data.filter((item) => item.status === 'รออนุมัติ').length,
     รับแล้ว: data.filter((item) => item.status === 'รับแล้ว').length,
     ยกเลิก: data.filter((item) => item.status === 'ยกเลิก').length,
-  };
-
-  const handleAdd = async () => {
-    try {
-      const voucherNo = generateVoucherNumber(data.length);
-      const payload = {
-        voucher_no: voucherNo,
-        date: formData.date,
-        payer: formData.payer,
-        amount: Number(formData.amount),
-        description: formData.description || undefined,
-        status: formData.status,
-        receive_method: formData.receive_method || undefined,
-        withholding_tax_no: formData.withholding_tax_no || undefined,
-        withholding_tax_amount: formData.withholding_tax_amount ? Number(formData.withholding_tax_amount) : undefined,
-        receive_date: formData.receive_date || undefined,
-      };
-
-      await axios.post(API_URL, payload);
-      toast.success('สร้างใบสำคัญรับเงินสำเร็จ');
-      setIsAddDialogOpen(false);
-      resetForm();
-      fetchData();
-    } catch (error) {
-      console.error('Error adding voucher:', error);
-      toast.error('เกิดข้อผิดพลาดในการสร้างใบสำคัญรับเงิน');
-    }
   };
 
   const handleEdit = (item: ReceiveVoucher) => {
@@ -511,104 +478,20 @@ export default function ReceiveVoucherPage({ userRole }: ReceiveVoucherPageProps
         </CardContent>
       </Card>
 
-      {/* Add Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>สร้างใบสำคัญรับเงินใหม่</DialogTitle>
-            <DialogDescription>กรอกข้อมูลใบสำคัญรับเงิน</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>วันที่</Label>
-                <Input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>ผู้จ่ายเงิน</Label>
-                <Input
-                  placeholder="ชื่อผู้จ่ายเงิน"
-                  value={formData.payer}
-                  onChange={(e) => setFormData({ ...formData, payer: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>จำนวนเงิน</Label>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>วิธีรับเงิน</Label>
-                <Select
-                  value={formData.receive_method}
-                  onValueChange={(value) => setFormData({ ...formData, receive_method: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="เงินสด">เงินสด</SelectItem>
-                    <SelectItem value="โอนเงิน">โอนเงิน</SelectItem>
-                    <SelectItem value="เช็ค">เช็ค</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>เลขที่ใบหัก ณ ที่จ่าย (ถ้ามี)</Label>
-                <Input
-                  placeholder="WHT-YYYY-XXX"
-                  value={formData.withholding_tax_no}
-                  onChange={(e) => setFormData({ ...formData, withholding_tax_no: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>ยอดเงินหัก ณ ที่จ่าย (ถ้ามี)</Label>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={formData.withholding_tax_amount}
-                  onChange={(e) => setFormData({ ...formData, withholding_tax_amount: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>วันที่รับชำระเงิน</Label>
-              <Input
-                type="date"
-                value={formData.receive_date}
-                onChange={(e) => setFormData({ ...formData, receive_date: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>รายละเอียด</Label>
-              <Textarea
-                placeholder="รายละเอียดการรับเงิน"
-                rows={4}
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                ยกเลิก
-              </Button>
-              <Button onClick={handleAdd}>บันทึก</Button>
-            </div>
+      {/* Add Form */}
+      {isAddDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto bg-black/50">
+          <div className="w-full max-w-6xl my-8">
+            <ReceiveVoucherForm
+              onSave={() => {
+                setIsAddDialogOpen(false);
+                fetchData();
+              }}
+              onCancel={() => setIsAddDialogOpen(false)}
+            />
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
