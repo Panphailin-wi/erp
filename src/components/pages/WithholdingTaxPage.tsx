@@ -817,12 +817,13 @@ export default function WithholdingTaxPage({ userRole }: WithholdingTaxPageProps
 
       {/* View Dialog */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className=" w-[1500px] h-[99.5vh] flex flex-col p-0 gap-0 m-0">
+          <DialogHeader className="px-6 py-4 border-b shrink-0">
             <DialogTitle>รายละเอียดหัก ณ ที่จ่าย</DialogTitle>
           </DialogHeader>
           {selectedItem && (
-            <div className="space-y-6">
+            <div className="flex-1 px-6 py-4 overflow-y-auto">
+              <div className="space-y-6">
               {/* Document Info */}
               <div className="grid grid-cols-3 gap-4">
                 <div>
@@ -979,9 +980,10 @@ export default function WithholdingTaxPage({ userRole }: WithholdingTaxPageProps
                   </p>
                 )}
               </div>
+              </div>
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="px-6 py-4 border-t shrink-0">
             <Button variant="outline" onClick={() => setIsViewOpen(false)}>
               ปิด
             </Button>

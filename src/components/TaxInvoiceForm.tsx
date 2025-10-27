@@ -24,6 +24,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { customerService } from '../services/customerService';
 import type { Customer } from '../services/customerService';
+import { productService } from '../services/productService';
+import type { Product } from '../services/productService';
 import { toast } from 'sonner';
 
 
@@ -31,6 +33,7 @@ import { toast } from 'sonner';
 
 interface InvoiceItem {
   id: string;
+  productId?: number;
   description: string;
   amount: number;
 }
@@ -81,6 +84,7 @@ export default function TaxInvoiceForm({
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [selectedDocument, setSelectedDocument] = useState('');
   const [openCustomer, setOpenCustomer] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [notes, setNotes] = useState('1. การชำระเงินภายในเวลาที่กำหนด 7 วัน ตั้งแต่วันที่ได้รับสินค้า\n2. การส่งมอบสินค้าต้องเป็นไปตามเงื่อนไขที่ระบุไว้ในใบสั่งซื้อนี้เท่านั้น คลาง POSTER ONLY การขนส่ง\n3. ค่าบริการจัดส่งคิดตามระยะทางจริงรวมภาษีมูลค่าเพิ่ม');
   const [discount, setDiscount] = useState(0);
@@ -90,18 +94,22 @@ export default function TaxInvoiceForm({
   const [shippingAddress, setShippingAddress] = useState('');
   const [shippingPhone, setShippingPhone] = useState('');
 
-  // โหลดข้อมูลลูกค้าจากฐานข้อมูล
+  // โหลดข้อมูลลูกค้าและสินค้าจากฐานข้อมูล
   useEffect(() => {
-    const loadCustomers = async () => {
+    const loadData = async () => {
       try {
-        const customerList = await customerService.getActiveCustomers();
+        const [customerList, productList] = await Promise.all([
+          customerService.getActiveCustomers(),
+          productService.getAll()
+        ]);
         setCustomers(customerList);
+        setProducts(productList);
       } catch (error) {
-        console.error('Error loading customers:', error);
-        toast.error('ไม่สามารถโหลดข้อมูลลูกค้าได้');
+        console.error('Error loading data:', error);
+        toast.error('ไม่สามารถโหลดข้อมูลได้');
       }
     };
-    loadCustomers();
+    loadData();
   }, []);
 
   const getDocumentTitle = () => {
@@ -115,6 +123,21 @@ export default function TaxInvoiceForm({
       amount: 0,
     };
     setItems([...items, newItem]);
+  };
+
+  const handleSelectProduct = (itemId: string, product: Product) => {
+    setItems(
+      items.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              productId: product.id,
+              description: product.name,
+              amount: Number(product.price) || 0,
+            }
+          : item
+      )
+    );
   };
 
   const handleRemoveItem = (id: string) => {
@@ -402,13 +425,35 @@ export default function TaxInvoiceForm({
                       <TableRow key={item.id}>
                         <TableCell className="text-center">{index + 1}</TableCell>
                         <TableCell>
-                          <Input
-                            value={item.description}
-                            onChange={(e) =>
-                              handleUpdateItem(item.id, 'description', e.target.value)
-                            }
-                            placeholder="รายละเอียดสินค้า..."
-                          />
+                          <div className="space-y-2">
+                            <Select
+                              value={item.productId?.toString()}
+                              onValueChange={(value) => {
+                                const product = products.find(p => p.id === parseInt(value));
+                                if (product) {
+                                  handleSelectProduct(item.id, product);
+                                }
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="เลือกสินค้า/บริการ..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {products.map((product) => (
+                                  <SelectItem key={product.id} value={product.id.toString()}>
+                                    {product.name} - ฿{Number(product.price).toLocaleString()}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              value={item.description}
+                              onChange={(e) =>
+                                handleUpdateItem(item.id, 'description', e.target.value)
+                              }
+                              placeholder="หรือพิมพ์รายละเอียดเอง..."
+                            />
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Input

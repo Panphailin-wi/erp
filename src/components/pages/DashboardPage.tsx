@@ -108,45 +108,41 @@ export default function DashboardPage({ userRole }: DashboardPageProps) {
 
       // Fetch all data in parallel with error handling
       const [
-        quotationsRes,
-        invoicesRes,
-        receiptsRes,
+        taxInvoicesRes,
         purchaseOrdersRes,
         receiveVouchersRes,
+        paymentVouchersRes,
       ] = await Promise.allSettled([
-        axios.get(`${API_BASE_URL}/quotations`).catch(() => ({ data: [] })),
-        axios.get(`${API_BASE_URL}/invoices`).catch(() => ({ data: [] })),
-        axios.get(`${API_BASE_URL}/receipts`).catch(() => ({ data: [] })),
+        axios.get(`${API_BASE_URL}/tax-invoices`).catch(() => ({ data: [] })),
         axios.get(`${API_BASE_URL}/purchase-orders`).catch(() => ({ data: [] })),
         axios.get(`${API_BASE_URL}/receive-vouchers`).catch(() => ({ data: [] })),
+        axios.get(`${API_BASE_URL}/payment-vouchers`).catch(() => ({ data: [] })),
       ]);
 
       // Extract data from settled promises
-      const quotations = quotationsRes.status === 'fulfilled' ? quotationsRes.value.data : [];
-      const invoices = invoicesRes.status === 'fulfilled' ? invoicesRes.value.data : [];
-      const receipts = receiptsRes.status === 'fulfilled' ? receiptsRes.value.data : [];
+      const taxInvoices = taxInvoicesRes.status === 'fulfilled' ? taxInvoicesRes.value.data : [];
       const purchaseOrders = purchaseOrdersRes.status === 'fulfilled' ? purchaseOrdersRes.value.data : [];
       const receiveVouchers = receiveVouchersRes.status === 'fulfilled' ? receiveVouchersRes.value.data : [];
+      const paymentVouchers = paymentVouchersRes.status === 'fulfilled' ? paymentVouchersRes.value.data : [];
 
       // Calculate stats
       calculateStats(
-        quotations,
-        invoices,
-        receipts,
+        taxInvoices,
         purchaseOrders,
-        receiveVouchers
+        receiveVouchers,
+        paymentVouchers
       );
 
       // Calculate monthly sales
-      calculateMonthlySales(receipts, receiveVouchers);
+      calculateMonthlySales(receiveVouchers, purchaseOrders);
 
       // Calculate category data
-      calculateCategoryData(receipts);
+      calculateCategoryData(taxInvoices);
 
       // Get recent transactions
       getRecentTransactions(
-        receipts,
-        receiveVouchers
+        receiveVouchers,
+        taxInvoices
       );
 
     } catch (error) {
@@ -157,35 +153,28 @@ export default function DashboardPage({ userRole }: DashboardPageProps) {
   };
 
   const calculateStats = (
-    _quotations: unknown[],
-    _invoices: unknown[],
-    receipts: Receipt[],
-    _purchaseOrders: unknown[],
-    receiveVouchers: ReceiveVoucher[]
+    taxInvoices: any[],
+    purchaseOrders: any[],
+    receiveVouchers: any[],
+    paymentVouchers: any[]
   ) => {
-    // Calculate total sales (from receipts with status "ออกแล้ว")
-    // Since we don't have invoices yet, we use receipts as sales
-    const totalSales = receipts
-      .filter(r => r.status === 'ออกแล้ว')
-      .reduce((sum, r) => sum + Number(r.amount), 0);
+    // ยอดขาย = ใบสำคัญรับเงิน (Receive Vouchers)
+    const totalSales = receiveVouchers
+      .reduce((sum, rv) => sum + Number(rv.amount || 0), 0);
 
-    // Calculate total purchases (from receive vouchers with status "รับแล้ว")
-    // Since we don't have purchase orders yet, we use receive vouchers as purchases
-    const totalPurchases = receiveVouchers
-      .filter(rv => rv.status === 'รับแล้ว')
-      .reduce((sum, rv) => sum + Number(rv.amount), 0);
+    // ยอดซื้อ = ใบสั่งซื้อ (Purchase Orders)
+    const totalPurchases = purchaseOrders
+      .reduce((sum, po) => sum + Number(po.grand_total || 0), 0);
 
-    // Calculate receivables (receipts with status "รอออก" or "ร่าง")
-    // These are pending receipts that haven't been issued yet
-    const totalReceivables = receipts
-      .filter(r => r.status === 'รอออก' || r.status === 'ร่าง')
-      .reduce((sum, r) => sum + Number(r.amount), 0);
+    // ลูกหนี้ = ใบแจ้งหนี้ที่รอชำระ (Tax Invoices with status "approved")
+    const totalReceivables = taxInvoices
+      .filter(inv => inv.status === 'approved')
+      .reduce((sum, inv) => sum + Number(inv.grand_total || 0), 0);
 
-    // Calculate payables (receive vouchers with status "รอรับ" or "รออนุมัติ")
-    // These are pending payments
-    const totalPayables = receiveVouchers
-      .filter(rv => rv.status === 'รอรับ' || rv.status === 'รออนุมัติ')
-      .reduce((sum, rv) => sum + Number(rv.amount), 0);
+    // เจ้าหนี้ = ใบสำคัญจ่ายเงินที่รอจ่าย (Payment Vouchers ที่ยังไม่ได้จ่าย)
+    const totalPayables = paymentVouchers
+      .filter(pv => pv.status === 'รอจ่าย' || pv.status === 'ร่าง')
+      .reduce((sum, pv) => sum + Number(pv.amount || 0), 0);
 
     setStats({
       totalSales,
@@ -199,7 +188,7 @@ export default function DashboardPage({ userRole }: DashboardPageProps) {
     });
   };
 
-  const calculateMonthlySales = (receipts: Receipt[], receiveVouchers: ReceiveVoucher[]): void => {
+  const calculateMonthlySales = (receiveVouchers: any[], purchaseOrders: any[]): void => {
     const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
     const currentDate = new Date();
     const last6Months: MonthlySales[] = [];
@@ -209,23 +198,21 @@ export default function DashboardPage({ userRole }: DashboardPageProps) {
       const month = date.getMonth();
       const year = date.getFullYear();
 
-      const monthlySalesAmount = receipts
-        .filter(r => {
-          const rDate = new Date(r.date);
-          return rDate.getMonth() === month &&
-                 rDate.getFullYear() === year &&
-                 r.status === 'ออกแล้ว';
-        })
-        .reduce((sum, r) => sum + Number(r.amount), 0);
-
-      const monthlyPurchaseAmount = receiveVouchers
+      // ยอดขาย = ใบสำคัญรับเงิน
+      const monthlySalesAmount = receiveVouchers
         .filter(rv => {
-          const rvDate = new Date(rv.date);
-          return rvDate.getMonth() === month &&
-                 rvDate.getFullYear() === year &&
-                 rv.status === 'รับแล้ว';
+          const rvDate = new Date(rv.date || rv.voucher_date);
+          return rvDate.getMonth() === month && rvDate.getFullYear() === year;
         })
-        .reduce((sum, rv) => sum + Number(rv.amount), 0);
+        .reduce((sum, rv) => sum + Number(rv.amount || 0), 0);
+
+      // ยอดซื้อ = ใบสั่งซื้อ
+      const monthlyPurchaseAmount = purchaseOrders
+        .filter(po => {
+          const poDate = new Date(po.order_date || po.doc_date);
+          return poDate.getMonth() === month && poDate.getFullYear() === year;
+        })
+        .reduce((sum, po) => sum + Number(po.grand_total || 0), 0);
 
       last6Months.push({
         month: monthNames[month],
@@ -237,20 +224,19 @@ export default function DashboardPage({ userRole }: DashboardPageProps) {
     setMonthlySales(last6Months);
   };
 
-  const calculateCategoryData = (receipts: Receipt[]): void => {
-    // Group by customer as categories (since we don't have product categories)
+  const calculateCategoryData = (taxInvoices: any[]): void => {
+    // Group by customer from tax invoices
     const customerSales: { [key: string]: number } = {};
 
-    receipts
-      .filter(r => r.status === 'ออกแล้ว')
-      .forEach(r => {
-        const amount = Number(r.amount);
-        if (customerSales[r.customer]) {
-          customerSales[r.customer] += amount;
-        } else {
-          customerSales[r.customer] = amount;
-        }
-      });
+    taxInvoices.forEach(inv => {
+      const customer = inv.customer_name || 'ไม่ระบุ';
+      const amount = Number(inv.grand_total || 0);
+      if (customerSales[customer]) {
+        customerSales[customer] += amount;
+      } else {
+        customerSales[customer] = amount;
+      }
+    });
 
     const categoryArray = Object.entries(customerSales)
       .map(([name, value]) => ({ name, value }))
@@ -261,32 +247,32 @@ export default function DashboardPage({ userRole }: DashboardPageProps) {
   };
 
   const getRecentTransactions = (
-    receipts: Receipt[],
-    receiveVouchers: ReceiveVoucher[]
+    receiveVouchers: any[],
+    taxInvoices: any[]
   ): void => {
     const transactions: RecentTransaction[] = [];
 
-    // Add receipts
-    receipts.slice(0, 2).forEach(r => {
-      const amount = Number(r.amount) || 0;
+    // Add receive vouchers (ยอดขาย)
+    receiveVouchers.slice(0, 3).forEach(rv => {
+      const amount = Number(rv.amount || 0);
       transactions.push({
-        type: 'ใบเสร็จ',
-        no: r.receipt_no,
-        customer: r.customer,
+        type: 'ใบสำคัญรับเงิน',
+        no: rv.voucher_no || rv.doc_number || '-',
+        customer: rv.payer || rv.customer_name || '-',
         amount: `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`,
-        date: new Date(r.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }),
+        date: new Date(rv.date || rv.voucher_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }),
       });
     });
 
-    // Add receive vouchers
-    receiveVouchers.slice(0, 2).forEach(rv => {
-      const amount = Number(rv.amount) || 0;
+    // Add tax invoices (ใบแจ้งหนี้)
+    taxInvoices.slice(0, 2).forEach(inv => {
+      const amount = Number(inv.grand_total || 0);
       transactions.push({
-        type: 'ใบสำคัญรับเงิน',
-        no: rv.voucher_no,
-        customer: rv.payer,
+        type: 'ใบแจ้งหนี้',
+        no: inv.doc_number || '-',
+        customer: inv.customer_name || '-',
         amount: `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`,
-        date: new Date(rv.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }),
+        date: new Date(inv.doc_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }),
       });
     });
 

@@ -5,10 +5,10 @@ export interface CompanySetting {
   company_name: string;
   branch_name: string | null;
   tax_id: string;
-  vat_number: string | null;
   address: string;
   phone: string | null;
   email: string | null;
+  logo: string | null;
   enable_email: boolean;
   enable_sms: boolean;
   auto_backup: boolean;
@@ -21,10 +21,10 @@ export interface UpdateCompanySettingData {
   company_name: string;
   branch_name?: string;
   tax_id: string;
-  vat_number?: string;
   address: string;
   phone?: string;
   email?: string;
+  logo?: string;
   enable_email?: boolean;
   enable_sms?: boolean;
   auto_backup?: boolean;

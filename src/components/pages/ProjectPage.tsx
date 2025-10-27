@@ -122,7 +122,7 @@ export default function ProjectPage({ userRole }: ProjectPageProps) {
   const handleAdd = async () => {
     try {
       // Validate required fields
-      if (!formData.code || !selectedCustomerId || !formData.projectName || !formData.amount || !formData.installments || !formData.startDate) {
+      if (!formData.code || !selectedCustomerId || !formData.projectName || formData.amount <= 0 || formData.installments <= 0 || !formData.startDate) {
         toast.error('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน');
         return;
       }
@@ -196,7 +196,7 @@ export default function ProjectPage({ userRole }: ProjectPageProps) {
       if (!selectedItem) return;
 
       // Validate required fields
-      if (!formData.code || !selectedCustomerId || !formData.projectName || !formData.amount || !formData.installments || !formData.startDate) {
+      if (!formData.code || !selectedCustomerId || !formData.projectName || formData.amount <= 0 || formData.installments <= 0 || !formData.startDate) {
         toast.error('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน');
         return;
       }

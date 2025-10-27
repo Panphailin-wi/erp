@@ -84,10 +84,31 @@ export default function CustomerPage({ userRole }: CustomerPageProps) {
     }
   };
 
+  const generateNextCode = () => {
+    if (data.length === 0) {
+      return 'CUS-0001';
+    }
+
+    // หารหัสที่มี CUS- เท่านั้น
+    const cusCodes = data
+      .filter(c => c.code.startsWith('CUS-'))
+      .map(c => {
+        const num = parseInt(c.code.replace('CUS-', ''));
+        return isNaN(num) ? 0 : num;
+      });
+
+    const maxNum = cusCodes.length > 0 ? Math.max(...cusCodes) : 0;
+    const nextNum = maxNum + 1;
+    return `CUS-${String(nextNum).padStart(4, '0')}`;
+  };
+
   const handleAdd = async () => {
     try {
+      // Ensure we have a code
+      const codeToUse = formData.code || generateNextCode();
+
       await customerService.create({
-        code: formData.code,
+        code: codeToUse,
         name: formData.name,
         type: formData.type,
         branch_name: formData.branchName,
@@ -280,7 +301,26 @@ export default function CustomerPage({ userRole }: CustomerPageProps) {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>ลูกค้า/คู่ค้า</CardTitle>
-            <Button onClick={() => setIsAddDialogOpen(true)}>
+            <Button onClick={() => {
+              const nextCode = generateNextCode();
+              setFormData({
+                code: nextCode,
+                name: '',
+                type: 'ลูกค้า',
+                taxId: '',
+                branchName: '',
+                contact: '',
+                email: '',
+                address: '',
+                contactPerson: '',
+                note: '',
+                accountName: '',
+                accountNumber: '',
+                bankName: '',
+                status: true,
+              });
+              setIsAddDialogOpen(true);
+            }}>
               <Plus className="w-4 h-4 mr-2" />
               เพิ่มลูกค้า/คู่ค้า
             </Button>
@@ -369,9 +409,10 @@ export default function CustomerPage({ userRole }: CustomerPageProps) {
               <div className="space-y-2">
                 <Label>รหัส</Label>
                 <Input
-                  placeholder="CUST-XXX, SUPP-XXX หรือ BOTH-XXX"
+                  placeholder="CUS-0001"
                   value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                  readOnly
+                  className="bg-gray-50 cursor-not-allowed"
                 />
               </div>
               <div className="space-y-2">

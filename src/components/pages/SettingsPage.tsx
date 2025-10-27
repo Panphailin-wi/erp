@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { UserRole } from '../../types';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -10,6 +10,7 @@ import { Separator } from '../ui/separator';
 import { toast } from 'sonner';
 import { companySettingService } from '../../services/companySettingService';
 import { useCompanySettings } from '../../contexts/CompanySettingsContext';
+import { Upload, X } from 'lucide-react';
 
 interface SettingsPageProps {
   userRole: UserRole;
@@ -21,10 +22,12 @@ export default function SettingsPage({ userRole }: SettingsPageProps) {
   const [companyName, setCompanyName] = useState('');
   const [branchName, setBranchName] = useState('');
   const [taxId, setTaxId] = useState('');
-  const [vatNumber, setVatNumber] = useState('');
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [logo, setLogo] = useState<string | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [enableEmail, setEnableEmail] = useState(true);
   const [enableSMS, setEnableSMS] = useState(false);
@@ -43,10 +46,10 @@ export default function SettingsPage({ userRole }: SettingsPageProps) {
       setCompanyName(settings.company_name);
       setBranchName(settings.branch_name || '');
       setTaxId(settings.tax_id);
-      setVatNumber(settings.vat_number || '');
       setAddress(settings.address);
       setPhone(settings.phone || '');
       setEmail(settings.email || '');
+      setLogo(settings.logo || null);
       setEnableEmail(settings.enable_email);
       setEnableSMS(settings.enable_sms);
       setAutoBackup(settings.auto_backup);
@@ -59,6 +62,34 @@ export default function SettingsPage({ userRole }: SettingsPageProps) {
     }
   };
 
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error('ขนาดไฟล์ต้องไม่เกิน 2MB');
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        toast.error('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
+        return;
+      }
+      setLogoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogo(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setLogo(null);
+    setLogoFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSaveCompany = async () => {
     try {
       setLoading(true);
@@ -66,10 +97,10 @@ export default function SettingsPage({ userRole }: SettingsPageProps) {
         company_name: companyName,
         branch_name: branchName,
         tax_id: taxId,
-        vat_number: vatNumber,
         address: address,
         phone: phone,
         email: email,
+        logo: logo || undefined,
       });
       toast.success('บันทึกข้อมูลบริษัทสำเร็จ');
       await loadSettings();
@@ -89,7 +120,6 @@ export default function SettingsPage({ userRole }: SettingsPageProps) {
         company_name: companyName,
         branch_name: branchName,
         tax_id: taxId,
-        vat_number: vatNumber,
         address: address,
         phone: phone,
         email: email,
@@ -141,6 +171,60 @@ export default function SettingsPage({ userRole }: SettingsPageProps) {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
+                <Label>โลโก้บริษัท</Label>
+                <div className="flex items-center gap-4">
+                  {logo ? (
+                    <div className="relative">
+                      <img
+                        src={logo}
+                        alt="Logo"
+                        className="w-32 h-32 object-contain border rounded-lg"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute -top-2 -right-2 h-6 w-6"
+                        onClick={handleRemoveLogo}
+                        disabled={loading}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="w-32 h-32 border-2 border-dashed rounded-lg flex items-center justify-center bg-gray-50">
+                      <Upload className="h-8 w-8 text-gray-400" />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoChange}
+                      className="hidden"
+                      id="logo-upload"
+                      disabled={loading}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={loading}
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      เลือกไฟล์โลโก้
+                    </Button>
+                    <p className="text-sm text-gray-500 mt-2">
+                      รองรับไฟล์: JPG, PNG, GIF (สูงสุด 2MB)
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-2">
                 <Label htmlFor="companyName">ชื่อบริษัท</Label>
                 <Input
                   id="companyName"
@@ -159,27 +243,15 @@ export default function SettingsPage({ userRole }: SettingsPageProps) {
                   disabled={loading}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="taxId">เลขประจำตัวผู้เสียภาษี</Label>
-                  <Input
-                    id="taxId"
-                    value={taxId}
-                    onChange={(e) => setTaxId(e.target.value)}
-                    maxLength={13}
-                    disabled={loading}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="vatNumber">เลขทะเบียนภาษีมูลค่าเพิ่ม</Label>
-                  <Input
-                    id="vatNumber"
-                    value={vatNumber}
-                    onChange={(e) => setVatNumber(e.target.value)}
-                    maxLength={13}
-                    disabled={loading}
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="taxId">เลขประจำตัวผู้เสียภาษี</Label>
+                <Input
+                  id="taxId"
+                  value={taxId}
+                  onChange={(e) => setTaxId(e.target.value)}
+                  maxLength={13}
+                  disabled={loading}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="address">ที่อยู่</Label>

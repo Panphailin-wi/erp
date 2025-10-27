@@ -442,18 +442,18 @@ const handleUpdate = async () => {
   return (
     <div className="space-y-6">
       {/* Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card
-          className="bg-gradient-to-br from-blue-400 to-blue-500 text-white cursor-pointer hover:shadow-lg transition-shadow"
+          className="text-white transition-shadow cursor-pointer bg-gradient-to-br from-blue-400 to-blue-500 hover:shadow-lg"
           onClick={() => setFilterStatus('draft')}
         >
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-3xl mb-1">{statusCounts.ร่าง}</p>
+                <p className="mb-1 text-3xl">{statusCounts.ร่าง}</p>
                 <p className="text-sm opacity-90">ร่าง</p>
               </div>
-              <div className="bg-white/20 p-3 rounded-lg">
+              <div className="p-3 rounded-lg bg-white/20">
                 <FileText className="w-8 h-8" />
               </div>
             </div>
@@ -461,16 +461,16 @@ const handleUpdate = async () => {
         </Card>
 
         <Card
-          className="bg-gradient-to-br from-yellow-400 to-yellow-500 text-white cursor-pointer hover:shadow-lg transition-shadow"
+          className="text-white transition-shadow cursor-pointer bg-gradient-to-br from-yellow-400 to-yellow-500 hover:shadow-lg"
           onClick={() => setFilterStatus('approved')}
         >
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-3xl mb-1">{statusCounts.รอชำระ}</p>
+                <p className="mb-1 text-3xl">{statusCounts.รอชำระ}</p>
                 <p className="text-sm opacity-90">รอชำระ</p>
               </div>
-              <div className="bg-white/20 p-3 rounded-lg">
+              <div className="p-3 rounded-lg bg-white/20">
                 <Clock className="w-8 h-8" />
               </div>
             </div>
@@ -478,16 +478,16 @@ const handleUpdate = async () => {
         </Card>
 
         <Card
-          className="bg-gradient-to-br from-teal-400 to-teal-500 text-white cursor-pointer hover:shadow-lg transition-shadow"
+          className="text-white transition-shadow cursor-pointer bg-gradient-to-br from-teal-400 to-teal-500 hover:shadow-lg"
           onClick={() => setFilterStatus('all')}
         >
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-3xl mb-1">{statusCounts.ชำระแล้ว}</p>
+                <p className="mb-1 text-3xl">{statusCounts.ชำระแล้ว}</p>
                 <p className="text-sm opacity-90">ชำระแล้ว</p>
               </div>
-              <div className="bg-white/20 p-3 rounded-lg">
+              <div className="p-3 rounded-lg bg-white/20">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
             </div>
@@ -495,16 +495,16 @@ const handleUpdate = async () => {
         </Card>
 
         <Card
-          className="bg-gradient-to-br from-gray-400 to-gray-500 text-white cursor-pointer hover:shadow-lg transition-shadow"
+          className="text-white transition-shadow cursor-pointer bg-gradient-to-br from-gray-400 to-gray-500 hover:shadow-lg"
           onClick={() => setFilterStatus('cancelled')}
         >
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-3xl mb-1">{statusCounts.ยกเลิก}</p>
+                <p className="mb-1 text-3xl">{statusCounts.ยกเลิก}</p>
                 <p className="text-sm opacity-90">ยกเลิก</p>
               </div>
-              <div className="bg-white/20 p-3 rounded-lg">
+              <div className="p-3 rounded-lg bg-white/20">
                 <XCircle className="w-8 h-8" />
               </div>
             </div>
@@ -519,11 +519,11 @@ const handleUpdate = async () => {
             <div>
               <CardTitle>รายการใบแจ้งหนี้</CardTitle>
               {filterStatus !== 'all' && (
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="mt-1 text-sm text-gray-500">
                   กรองตาม: {filterStatus}{' '}
                   <Button
                     variant="link"
-                    className="p-0 h-auto text-sm"
+                    className="h-auto p-0 text-sm"
                     onClick={() => setFilterStatus('all')}
                   >
                     แสดงทั้งหมด
@@ -540,7 +540,7 @@ const handleUpdate = async () => {
         <CardContent>
           <div className="mb-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute w-4 h-4 text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
               <Input
                 placeholder="ค้นหาเลขที่เอกสาร, ลูกค้า..."
                 value={searchTerm}
