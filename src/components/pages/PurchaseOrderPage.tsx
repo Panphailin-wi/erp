@@ -38,8 +38,8 @@ import {
   AlertDialogTitle,
 } from '../ui/alert-dialog';
 import { Label } from '../ui/label';
-import { Textarea } from '../ui/textarea';
 import { toast } from 'sonner';
+import TaxInvoiceForm from '../TaxInvoiceForm';
 
 interface PurchaseOrderPageProps {
   userRole: UserRole;
@@ -49,10 +49,26 @@ interface PurchaseOrder {
   id: number;
   po_number: string;
   date: string;
-  supplier: string;
-  amount: number;
+  supplier_code?: string;
+  supplier_name: string;
+  supplier_address?: string;
+  supplier_tax_id?: string;
+  supplier_phone?: string;
+  supplier_email?: string;
+  reference_doc?: string;
+  shipping_address?: string;
+  shipping_phone?: string;
+  items: string;
+  notes?: string;
+  discount: number;
+  vat_rate: number;
+  subtotal: number;
+  discount_amount: number;
+  after_discount: number;
+  vat: number;
+  grand_total: number;
   status: 'ร่าง' | 'รอจัดส่ง' | 'จัดส่งแล้ว' | 'ยกเลิก';
-  description?: string;
+  expected_delivery_date?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -62,19 +78,11 @@ export default function PurchaseOrderPage({ userRole }: PurchaseOrderPageProps) 
   const [data, setData] = useState<PurchaseOrder[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editData, setEditData] = useState<PurchaseOrder | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<PurchaseOrder | null>(null);
-  const [formData, setFormData] = useState({
-    po_number: '',
-    supplier: '',
-    date: '',
-    amount: '',
-    description: '',
-    status: 'ร่าง' as 'ร่าง' | 'รอจัดส่ง' | 'จัดส่งแล้ว' | 'ยกเลิก',
-  });
 
   const canEdit = userRole === 'admin' || userRole === 'account';
   const canDelete = userRole === 'admin' || userRole === 'account';
@@ -102,75 +110,32 @@ export default function PurchaseOrderPage({ userRole }: PurchaseOrderPageProps) 
     ยกเลิก: data.filter((item) => item.status === 'ยกเลิก').length,
   };
 
-  const generatePONumber = () => {
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const count = data.length + 1;
-    return `PO-${year}${month}-${String(count).padStart(3, '0')}`;
+  const handleFormSave = async (data: any) => {
+    toast.success('บันทึกใบสั่งซื้อสำเร็จ');
+    setShowForm(false);
+    setEditData(null);
+    fetchPurchaseOrders();
   };
 
-  const handleAdd = async () => {
-    try {
-      const payload = {
-        po_number: formData.po_number || generatePONumber(),
-        date: formData.date,
-        supplier: formData.supplier,
-        amount: Number(formData.amount),
-        status: formData.status,
-        description: formData.description,
-      };
-
-      const response = await axios.post(API_URL, payload);
-      toast.success('สร้างใบสั่งซื้อสำเร็จ');
-      setIsAddDialogOpen(false);
-      setFormData({ po_number: '', supplier: '', date: '', amount: '', description: '', status: 'ร่าง' });
-      fetchPurchaseOrders();
-    } catch (error: any) {
-      console.error('Error adding purchase order:', error);
-      toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาดในการสร้างใบสั่งซื้อ');
-    }
+  const handleFormCancel = () => {
+    setShowForm(false);
+    setEditData(null);
   };
 
-  const handleEdit = (item: PurchaseOrder) => {
+  const handleEdit = async (item: PurchaseOrder) => {
     if (!canEdit) {
       toast.error('คุณไม่มีสิทธิ์แก้ไขข้อมูล');
       return;
     }
-    setSelectedItem(item);
-    setFormData({
-      po_number: item.po_number,
-      supplier: item.supplier,
-      date: item.date,
-      amount: String(item.amount),
-      description: item.description || '',
-      status: item.status,
-    });
-    setIsEditDialogOpen(true);
-  };
 
-  const handleUpdate = async () => {
-    if (!selectedItem) return;
-
+    // โหลดข้อมูลจาก API
     try {
-      const payload = {
-        po_number: formData.po_number,
-        date: formData.date,
-        supplier: formData.supplier,
-        amount: Number(formData.amount),
-        status: formData.status,
-        description: formData.description,
-      };
-
-      await axios.put(`${API_URL}/${selectedItem.id}`, payload);
-      toast.success('แก้ไขใบสั่งซื้อสำเร็จ');
-      setIsEditDialogOpen(false);
-      setSelectedItem(null);
-      setFormData({ po_number: '', supplier: '', date: '', amount: '', description: '', status: 'ร่าง' });
-      fetchPurchaseOrders();
+      const response = await axios.get(`${API_URL}/${item.id}`);
+      setEditData(response.data);
+      setShowForm(true);
     } catch (error: any) {
-      console.error('Error updating purchase order:', error);
-      toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาดในการแก้ไขใบสั่งซื้อ');
+      console.error('Error loading purchase order:', error);
+      toast.error('ไม่สามารถโหลดข้อมูลได้');
     }
   };
 
@@ -210,16 +175,8 @@ export default function PurchaseOrderPage({ userRole }: PurchaseOrderPageProps) 
     }
 
     try {
-      const payload = {
-        po_number: item.po_number,
-        date: item.date,
-        supplier: item.supplier,
-        amount: item.amount,
-        status: newStatus,
-        description: item.description || '',
-      };
-
-      await axios.put(`${API_URL}/${item.id}`, payload);
+      // ใช้ API endpoint แยกสำหรับอัปเดทสถานะ
+      await axios.patch(`${API_URL}/${item.id}/status`, { status: newStatus });
       toast.success(`เปลี่ยนสถานะเป็น "${newStatus}" สำเร็จ`);
       fetchPurchaseOrders();
     } catch (error: any) {
@@ -241,7 +198,7 @@ export default function PurchaseOrderPage({ userRole }: PurchaseOrderPageProps) 
   const filteredData = data.filter((item) => {
     const matchesSearch =
       item.po_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.supplier.toLowerCase().includes(searchTerm.toLowerCase());
+      item.supplier_name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || item.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -318,9 +275,9 @@ export default function PurchaseOrderPage({ userRole }: PurchaseOrderPageProps) 
         <div class="info">
           <div class="info-row"><span class="info-label">เลขที่:</span> ${item.po_number}</div>
           <div class="info-row"><span class="info-label">วันที่:</span> ${new Date(item.date).toLocaleDateString('th-TH')}</div>
-          <div class="info-row"><span class="info-label">ผู้จำหน่าย:</span> ${item.supplier}</div>
+          <div class="info-row"><span class="info-label">ผู้จำหน่าย:</span> ${item.supplier_name}</div>
           <div class="info-row"><span class="info-label">สถานะ:</span> ${item.status}</div>
-          ${item.description ? `<div class="info-row"><span class="info-label">รายละเอียด:</span> ${item.description}</div>` : ''}
+          ${item.notes ? `<div class="info-row"><span class="info-label">รายละเอียด:</span> ${item.notes}</div>` : ''}
         </div>
         <table>
           <thead>
@@ -332,7 +289,7 @@ export default function PurchaseOrderPage({ userRole }: PurchaseOrderPageProps) 
           <tbody>
             <tr>
               <td>รวมทั้งสิ้น</td>
-              <td class="text-right">฿${item.amount.toLocaleString()}</td>
+              <td class="text-right">฿${item.grand_total.toLocaleString()}</td>
             </tr>
           </tbody>
         </table>
@@ -347,6 +304,18 @@ export default function PurchaseOrderPage({ userRole }: PurchaseOrderPageProps) 
     };
     toast.success(`เตรียมพิมพ์ ${item.po_number}`);
   };
+
+  // แสดง Form ถ้า showForm = true
+  if (showForm) {
+    return (
+      <TaxInvoiceForm
+        documentType="purchase_order"
+        onSave={handleFormSave}
+        onCancel={handleFormCancel}
+        editData={editData}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -441,8 +410,8 @@ export default function PurchaseOrderPage({ userRole }: PurchaseOrderPageProps) 
               )}
             </div>
             <Button onClick={() => {
-              setFormData({ po_number: generatePONumber(), supplier: '', date: '', amount: '', description: '', status: 'ร่าง' });
-              setIsAddDialogOpen(true);
+              setEditData(null);
+              setShowForm(true);
             }}>
               <Plus className="w-4 h-4 mr-2" />
               สร้างใบสั่งซื้อ
@@ -478,9 +447,9 @@ export default function PurchaseOrderPage({ userRole }: PurchaseOrderPageProps) 
                 <TableRow key={item.id}>
                   <TableCell>{item.po_number}</TableCell>
                   <TableCell>{new Date(item.date).toLocaleDateString('th-TH')}</TableCell>
-                  <TableCell>{item.supplier}</TableCell>
+                  <TableCell>{item.supplier_name}</TableCell>
                   <TableCell className="text-right">
-                    ฿{item.amount.toLocaleString()}
+                    ฿{item.grand_total.toLocaleString()}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -548,129 +517,6 @@ export default function PurchaseOrderPage({ userRole }: PurchaseOrderPageProps) 
         </CardContent>
       </Card>
 
-      {/* Add Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>สร้างใบสั่งซื้อใหม่</DialogTitle>
-            <DialogDescription>กรอกข้อมูลใบสั่งซื้อ</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>เลขที่เอกสาร</Label>
-                <Input
-                  placeholder="PO-YYYYMM-XXX"
-                  value={formData.po_number}
-                  onChange={(e) => setFormData({ ...formData, po_number: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>วันที่</Label>
-                <Input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>ผู้จำหน่าย</Label>
-              <Input
-                placeholder="ชื่อผู้จำหน่าย"
-                value={formData.supplier}
-                onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>จำนวนเงิน</Label>
-              <Input
-                type="number"
-                placeholder="0.00"
-                value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>รายละเอียด</Label>
-              <Textarea
-                placeholder="รายละเอียดเพิ่มเติม"
-                rows={4}
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                ยกเลิก
-              </Button>
-              <Button onClick={handleAdd}>บันทึก</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>แก้ไขใบสั่งซื้อ</DialogTitle>
-            <DialogDescription>แก้ไขข้อมูลใบสั่งซื้อ {selectedItem?.po_number}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>เลขที่เอกสาร</Label>
-                <Input
-                  placeholder="PO-YYYYMM-XXX"
-                  value={formData.po_number}
-                  onChange={(e) => setFormData({ ...formData, po_number: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>วันที่</Label>
-                <Input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>ผู้จำหน่าย</Label>
-              <Input
-                placeholder="ชื่อผู้จำหน่าย"
-                value={formData.supplier}
-                onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>จำนวนเงิน</Label>
-              <Input
-                type="number"
-                placeholder="0.00"
-                value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>รายละเอียด</Label>
-              <Textarea
-                placeholder="รายละเอียดเพิ่มเติม"
-                rows={4}
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                ยกเลิก
-              </Button>
-              <Button onClick={handleUpdate}>บันทึกการเปลี่ยนแปลง</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
@@ -693,20 +539,20 @@ export default function PurchaseOrderPage({ userRole }: PurchaseOrderPageProps) 
               </div>
               <div>
                 <Label className="text-gray-500">ผู้จำหน่าย</Label>
-                <p className="mt-1">{selectedItem.supplier}</p>
+                <p className="mt-1">{selectedItem.supplier_name}</p>
               </div>
               <div>
                 <Label className="text-gray-500">จำนวนเงิน</Label>
-                <p className="mt-1">฿{selectedItem.amount.toLocaleString()}</p>
+                <p className="mt-1">฿{selectedItem.grand_total.toLocaleString()}</p>
               </div>
               <div>
                 <Label className="text-gray-500">สถานะ</Label>
                 <div className="mt-1">{getStatusBadge(selectedItem.status)}</div>
               </div>
-              {selectedItem.description && (
+              {selectedItem.notes && (
                 <div>
                   <Label className="text-gray-500">รายละเอียด</Label>
-                  <p className="mt-1">{selectedItem.description}</p>
+                  <p className="mt-1">{selectedItem.notes}</p>
                 </div>
               )}
               <div className="flex justify-end">

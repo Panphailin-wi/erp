@@ -68,7 +68,7 @@ interface Invoice {
   after_discount: number;
   vat: number;
   grand_total: number;
-  status: 'draft' | 'sent' | 'paid' | 'cancelled';
+  status: 'draft' | 'pending' | 'paid' | 'cancelled';
   due_date?: string;
   created_at: string;
   updated_at: string;
@@ -123,8 +123,8 @@ const fetchData = async () => {
   // Calculate status counts
   const statusCounts = {
     ร่าง: data.filter((item) => item.status === 'draft').length,
-    รอชำระ: data.filter((item) => item.status === 'sent').length,
-    ชำระแล้ว: 0, // ไม่มีสถานะนี้ในระบบใหม่
+    รอชำระ: data.filter((item) => item.status === 'pending').length,
+    ชำระแล้ว: data.filter((item) => item.status === 'paid').length,
     ยกเลิก: data.filter((item) => item.status === 'cancelled').length,
   };
 
@@ -241,20 +241,18 @@ const handleUpdate = async () => {
 };
 
 
-  const handleStatusChange = async (item: Invoice, newStatus: 'draft' | 'sent' | 'cancelled') => {
+  const handleStatusChange = async (item: Invoice, newStatus: 'draft' | 'pending' | 'paid' | 'cancelled') => {
     if (!canEdit) {
       toast.error('คุณไม่มีสิทธิ์เปลี่ยนสถานะ');
       return;
     }
 
     try {
-      const res = await fetch(`${API_URL}/${item.id}`, {
-        method: "PUT",
+      // ใช้ API endpoint แยกสำหรับอัปเดทสถานะ
+      const res = await fetch(`${API_URL}/${item.id}/status`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...item,
-          status: newStatus,
-        }),
+        body: JSON.stringify({ status: newStatus }),
       });
 
       if (res.ok) {
@@ -263,13 +261,15 @@ const handleUpdate = async () => {
             d.id === item.id ? { ...d, status: newStatus } : d
           )
         );
-        const statusText = newStatus === 'draft' ? 'ร่าง' : newStatus === 'sent' ? 'อนุมัติแล้ว' : 'ยกเลิก';
+        const statusText = newStatus === 'draft' ? 'ร่าง' : newStatus === 'pending' ? 'รอชำระ' : newStatus === 'paid' ? 'ชำระแล้ว' : 'ยกเลิก';
         toast.success(`เปลี่ยนสถานะเป็น "${statusText}" สำเร็จ`);
       } else {
+        const errorData = await res.json();
+        console.error('API Error:', errorData);
         toast.error("เปลี่ยนสถานะไม่สำเร็จ");
       }
     } catch (error) {
-      console.error(error);
+      console.error('Fetch Error:', error);
       toast.error("ไม่สามารถเชื่อมต่อ API ได้");
     }
   };
@@ -277,12 +277,14 @@ const handleUpdate = async () => {
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
       'draft': 'outline',
-      'sent': 'default',
+      'pending': 'secondary',
+      'paid': 'default',
       'cancelled': 'destructive',
     };
     const labels: Record<string, string> = {
       'draft': 'ร่าง',
-      'sent': 'อนุมัติแล้ว',
+      'pending': 'รอชำระ',
+      'paid': 'ชำระแล้ว',
       'cancelled': 'ยกเลิก',
     };
     return <Badge variant={variants[status] || 'outline'}>{labels[status] || status}</Badge>;
@@ -417,7 +419,7 @@ const handleUpdate = async () => {
           <div class="info-row"><span class="info-label">เลขที่:</span> ${item.invoice_no}</div>
           <div class="info-row"><span class="info-label">วันที่:</span> ${new Date(item.invoice_date).toLocaleDateString('th-TH')}</div>
           <div class="info-row"><span class="info-label">ลูกค้า:</span> ${item.customer_name}</div>
-          <div class="info-row"><span class="info-label">สถานะ:</span> ${item.status === 'draft' ? 'ร่าง' : item.status === 'sent' ? 'อนุมัติแล้ว' : 'ยกเลิก'}</div>
+          <div class="info-row"><span class="info-label">สถานะ:</span> ${item.status === 'draft' ? 'ร่าง' : item.status === 'pending' ? 'รอชำระ' : item.status === 'paid' ? 'ชำระแล้ว' : 'ยกเลิก'}</div>
           ${item.notes ? `<div class="info-row"><span class="info-label">รายละเอียด:</span> ${item.notes}</div>` : ''}
         </div>
         <table>
@@ -480,7 +482,7 @@ const handleUpdate = async () => {
 
         <Card
           className="text-white transition-shadow cursor-pointer bg-gradient-to-br from-yellow-400 to-yellow-500 hover:shadow-lg"
-          onClick={() => setFilterStatus('sent')}
+          onClick={() => setFilterStatus('pending')}
         >
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
@@ -496,8 +498,8 @@ const handleUpdate = async () => {
         </Card>
 
         <Card
-          className="text-white transition-shadow cursor-pointer bg-gradient-to-br from-teal-400 to-teal-500 hover:shadow-lg"
-          onClick={() => setFilterStatus('all')}
+          className="text-white transition-shadow cursor-pointer bg-gradient-to-br from-green-400 to-green-500 hover:shadow-lg"
+          onClick={() => setFilterStatus('paid')}
         >
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
@@ -606,9 +608,13 @@ const handleUpdate = async () => {
                           <FileText className="w-4 h-4 mr-2" />
                           ร่าง
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleStatusChange(item, 'sent')}>
+                        <DropdownMenuItem onClick={() => handleStatusChange(item, 'pending')}>
+                          <Clock className="w-4 h-4 mr-2" />
+                          รอชำระ
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleStatusChange(item, 'paid')}>
                           <CheckCircle2 className="w-4 h-4 mr-2" />
-                          อนุมัติแล้ว
+                          ชำระแล้ว
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleStatusChange(item, 'cancelled')}>
                           <XCircle className="w-4 h-4 mr-2" />

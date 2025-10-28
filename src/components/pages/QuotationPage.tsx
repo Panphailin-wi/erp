@@ -159,17 +159,8 @@ export default function QuotationPage({ userRole }: QuotationPageProps) {
     }
 
     try {
-      const payload = {
-        quotation_number: item.quotation_number,
-        date: item.date,
-        customer: item.customer,
-        amount: item.amount,
-        status: newStatus,
-        description: item.description || '',
-        valid_until: item.valid_until || null,
-      };
-
-      await axios.put(`${API_URL}/${item.id}`, payload);
+      // ใช้ API endpoint แยกสำหรับอัปเดทสถานะ
+      await axios.patch(`${API_URL}/${item.id}/status`, { status: newStatus });
       toast.success(`เปลี่ยนสถานะเป็น "${newStatus}" สำเร็จ`);
       fetchQuotations();
     } catch (error: any) {

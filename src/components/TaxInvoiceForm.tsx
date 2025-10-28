@@ -130,9 +130,42 @@ export default function TaxInvoiceForm({
     loadData();
   }, []);
 
+  // โหลดข้อมูลจาก editData เมื่อมีการแก้ไข
+  useEffect(() => {
+    if (editData && customers.length > 0) {
+      // หาลูกค้าจาก customer_code หรือ supplier_code
+      const customerCode = editData.customer_code || editData.supplier_code;
+      const customer = customers.find(c => c.code === customerCode);
+      if (customer) {
+        setSelectedCustomer(customer);
+      }
+
+      // โหลดข้อมูลอื่นๆ
+      if (editData.shipping_address) setShippingAddress(editData.shipping_address);
+      if (editData.shipping_phone) setShippingPhone(editData.shipping_phone);
+      if (editData.notes) setNotes(editData.notes);
+      if (editData.discount !== undefined) setDiscount(editData.discount);
+      if (editData.vat_rate !== undefined) setVatRate(editData.vat_rate);
+      if (editData.reference_doc) setSelectedDocument(editData.reference_doc);
+
+      // โหลด items
+      if (editData.items) {
+        try {
+          const parsedItems = typeof editData.items === 'string'
+            ? JSON.parse(editData.items)
+            : editData.items;
+          setItems(parsedItems);
+        } catch (error) {
+          console.error('Error parsing items:', error);
+        }
+      }
+    }
+  }, [editData, customers]);
+
   const getDocumentTitle = () => {
     if (documentType === 'invoice') return 'ใบแจ้งหนี้/ใบกำกับภาษี';
     if (documentType === 'quotation') return 'ใบเสนอราคา';
+    if (documentType === 'purchase_order') return 'ใบสั่งซื้อ';
     return 'ใบเสร็จรับเงิน/ใบกำกับภาษี';
   };
 
