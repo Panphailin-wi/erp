@@ -39,8 +39,6 @@ import {
   AlertDialogTitle,
 } from '../ui/alert-dialog';
 import { Label } from '../ui/label';
-import { Textarea } from '../ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { toast } from 'sonner';
 
 interface ReceiveVoucherPageProps {
@@ -73,18 +71,6 @@ export default function ReceiveVoucherPage({ userRole }: ReceiveVoucherPageProps
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ReceiveVoucher | null>(null);
-  const [formData, setFormData] = useState({
-    voucher_no: '',
-    payer: '',
-    date: '',
-    amount: '',
-    description: '',
-    receive_method: 'โอนเงิน',
-    withholding_tax_no: '',
-    withholding_tax_amount: '',
-    receive_date: '',
-    status: 'รอรับ' as 'รอรับ' | 'รออนุมัติ' | 'รับแล้ว' | 'ยกเลิก',
-  });
 
   const canEdit = userRole === 'admin' || userRole === 'account';
   const canDelete = userRole === 'admin' || userRole === 'account';
@@ -121,48 +107,7 @@ export default function ReceiveVoucherPage({ userRole }: ReceiveVoucherPageProps
       return;
     }
     setSelectedItem(item);
-    setFormData({
-      voucher_no: item.voucher_no,
-      payer: item.payer,
-      date: item.date,
-      amount: String(item.amount),
-      description: item.description || '',
-      receive_method: item.receive_method || 'โอนเงิน',
-      withholding_tax_no: item.withholding_tax_no || '',
-      withholding_tax_amount: item.withholding_tax_amount ? String(item.withholding_tax_amount) : '',
-      receive_date: item.receive_date || '',
-      status: item.status,
-    });
     setIsEditDialogOpen(true);
-  };
-
-  const handleUpdate = async () => {
-    if (!selectedItem) return;
-
-    try {
-      const payload = {
-        voucher_no: formData.voucher_no,
-        date: formData.date,
-        payer: formData.payer,
-        amount: Number(formData.amount),
-        description: formData.description || undefined,
-        status: formData.status,
-        receive_method: formData.receive_method || undefined,
-        withholding_tax_no: formData.withholding_tax_no || undefined,
-        withholding_tax_amount: formData.withholding_tax_amount ? Number(formData.withholding_tax_amount) : undefined,
-        receive_date: formData.receive_date || undefined,
-      };
-
-      await axios.put(`${API_URL}/${selectedItem.id}`, payload);
-      toast.success('แก้ไขใบสำคัญรับเงินสำเร็จ');
-      setIsEditDialogOpen(false);
-      setSelectedItem(null);
-      resetForm();
-      fetchData();
-    } catch (error) {
-      console.error('Error updating voucher:', error);
-      toast.error('เกิดข้อผิดพลาดในการแก้ไขใบสำคัญรับเงิน');
-    }
   };
 
   const handleView = (item: ReceiveVoucher) => {
@@ -228,20 +173,6 @@ export default function ReceiveVoucherPage({ userRole }: ReceiveVoucherPageProps
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      voucher_no: '',
-      payer: '',
-      date: '',
-      amount: '',
-      description: '',
-      receive_method: 'โอนเงิน',
-      withholding_tax_no: '',
-      withholding_tax_amount: '',
-      receive_date: '',
-      status: 'รอรับ',
-    });
-  };
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -493,104 +424,26 @@ export default function ReceiveVoucherPage({ userRole }: ReceiveVoucherPageProps
         </div>
       )}
 
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>แก้ไขใบสำคัญรับเงิน</DialogTitle>
-            <DialogDescription>แก้ไขข้อมูล {selectedItem?.voucher_no}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>วันที่</Label>
-                <Input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>ผู้จ่ายเงิน</Label>
-                <Input
-                  placeholder="ชื่อผู้จ่ายเงิน"
-                  value={formData.payer}
-                  onChange={(e) => setFormData({ ...formData, payer: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>จำนวนเงิน</Label>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>วิธีรับเงิน</Label>
-                <Select
-                  value={formData.receive_method}
-                  onValueChange={(value) => setFormData({ ...formData, receive_method: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="เงินสด">เงินสด</SelectItem>
-                    <SelectItem value="โอนเงิน">โอนเงิน</SelectItem>
-                    <SelectItem value="เช็ค">เช็ค</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>เลขที่ใบหัก ณ ที่จ่าย (ถ้ามี)</Label>
-                <Input
-                  placeholder="WHT-YYYY-XXX"
-                  value={formData.withholding_tax_no}
-                  onChange={(e) => setFormData({ ...formData, withholding_tax_no: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>ยอดเงินหัก ณ ที่จ่าย (ถ้ามี)</Label>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={formData.withholding_tax_amount}
-                  onChange={(e) => setFormData({ ...formData, withholding_tax_amount: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>วันที่รับชำระเงิน</Label>
-              <Input
-                type="date"
-                value={formData.receive_date}
-                onChange={(e) => setFormData({ ...formData, receive_date: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>รายละเอียด</Label>
-              <Textarea
-                placeholder="รายละเอียดการรับเงิน"
-                rows={4}
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                ยกเลิก
-              </Button>
-              <Button onClick={handleUpdate}>บันทึกการเปลี่ยนแปลง</Button>
-            </div>
+      {/* Edit Form */}
+      {isEditDialogOpen && selectedItem && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto bg-black/50">
+          <div className="w-full max-w-6xl my-8">
+            <ReceiveVoucherForm
+              isEditMode={true}
+              editData={selectedItem}
+              onSave={() => {
+                setIsEditDialogOpen(false);
+                setSelectedItem(null);
+                fetchData();
+              }}
+              onCancel={() => {
+                setIsEditDialogOpen(false);
+                setSelectedItem(null);
+              }}
+            />
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>

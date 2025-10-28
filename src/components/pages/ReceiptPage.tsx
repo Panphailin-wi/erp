@@ -15,7 +15,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Plus, Edit, Trash2, Eye, Search, Download, FileText, Clock, CheckCircle2, XCircle, ChevronDown, Printer } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import TaxInvoiceForm from '../TaxInvoiceForm';
-import { mockCustomers } from '../mockData';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,7 +51,7 @@ interface Receipt {
   receipt_no: string;
   date: string;
   customer: string;
-  invoiceNo: string;
+  invoice_ref: string; // แก้ชื่อ field ให้ตรงกับ backend
   amount: number;
   status: 'ร่าง' | 'รอออก' | 'ออกแล้ว' | 'ยกเลิก';
   description?: string;
@@ -122,7 +121,7 @@ export default function ReceiptPage({ userRole }: ReceiptPageProps) {
         receipt_no: receiptNo,
         date: formData.date,
         customer: formData.customer,
-        invoiceNo: formData.invoiceNo,
+        invoice_ref: formData.invoiceNo, // แก้ไขชื่อ field ให้ตรงกับ backend
         amount: Number(formData.amount),
         status: 'ร่าง' as const,
         description: formData.description || undefined,
@@ -148,7 +147,7 @@ export default function ReceiptPage({ userRole }: ReceiptPageProps) {
     setFormData({
       customer: item.customer,
       date: item.date,
-      invoiceNo: item.invoiceNo,
+      invoiceNo: item.invoice_ref, // แก้ไขให้ใช้ invoice_ref
       amount: String(item.amount),
       description: item.description || '',
     });
@@ -163,7 +162,7 @@ export default function ReceiptPage({ userRole }: ReceiptPageProps) {
         receipt_no: selectedItem.receipt_no,
         date: formData.date,
         customer: formData.customer,
-        invoiceNo: formData.invoiceNo,
+        invoice_ref: formData.invoiceNo, // แก้ไขชื่อ field ให้ตรงกับ backend
         amount: Number(formData.amount),
         status: selectedItem.status,
         description: formData.description || undefined,
@@ -283,7 +282,7 @@ export default function ReceiptPage({ userRole }: ReceiptPageProps) {
           <div class="info-row"><span class="info-label">เลขที่:</span> ${item.receipt_no}</div>
           <div class="info-row"><span class="info-label">วันที่:</span> ${new Date(item.date).toLocaleDateString('th-TH')}</div>
           <div class="info-row"><span class="info-label">ลูกค้า:</span> ${item.customer}</div>
-          <div class="info-row"><span class="info-label">อ้างอิงใบแจ้งหนี้:</span> ${item.invoiceNo}</div>
+          <div class="info-row"><span class="info-label">อ้างอิงใบแจ้งหนี้:</span> ${item.invoice_ref}</div>
           <div class="info-row"><span class="info-label">สถานะ:</span> ${item.status}</div>
           ${item.description ? `<div class="info-row"><span class="info-label">รายละเอียด:</span> ${item.description}</div>` : ''}
         </div>
@@ -324,7 +323,7 @@ export default function ReceiptPage({ userRole }: ReceiptPageProps) {
         receipt_no: item.receipt_no,
         date: item.date,
         customer: item.customer,
-        invoiceNo: item.invoiceNo,
+        invoice_ref: item.invoiceNo, // แก้ไขชื่อ field ให้ตรงกับ backend
         amount: item.amount,
         status: newStatus,
         description: item.description || undefined,
@@ -353,38 +352,16 @@ export default function ReceiptPage({ userRole }: ReceiptPageProps) {
     const matchesSearch =
       item.receipt_no.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.invoiceNo.toLowerCase().includes(searchTerm.toLowerCase());
+      item.invoice_ref.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || item.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
 
-  const handleSaveDocument = async (documentData: {
-    docNumber: string;
-    docDate: string;
-    customer?: { name: string };
-    selectedDocument?: string;
-    grandTotal: number;
-    notes?: string;
-  }) => {
-    try {
-      const payload = {
-        receipt_no: documentData.docNumber,
-        date: documentData.docDate,
-        customer: documentData.customer?.name || 'ไม่ระบุ',
-        invoiceNo: documentData.selectedDocument || '-',
-        amount: documentData.grandTotal,
-        status: 'ร่าง' as const,
-        description: documentData.notes || undefined,
-      };
-
-      await axios.post(API_URL, payload);
-      toast.success('สร้างใบเสร็จรับเงิน/ใบกำกับภาษีสำเร็จ');
-      setShowDocumentForm(false);
-      fetchData();
-    } catch (error) {
-      console.error('Error saving document:', error);
-      toast.error('เกิดข้อผิดพลาดในการสร้างใบเสร็จ');
-    }
+  const handleSaveDocument = () => {
+    // TaxInvoiceForm บันทึกข้อมูลให้เองแล้ว ไม่ต้องบันทึกซ้ำ
+    // แค่ปิด form และ refresh ข้อมูล
+    setShowDocumentForm(false);
+    fetchData();
   };
 
   const handleCancelDocument = () => {
@@ -395,7 +372,6 @@ export default function ReceiptPage({ userRole }: ReceiptPageProps) {
     return (
       <TaxInvoiceForm
         documentType="receipt"
-        customers={mockCustomers}
         onSave={handleSaveDocument}
         onCancel={handleCancelDocument}
       />
@@ -547,7 +523,7 @@ export default function ReceiptPage({ userRole }: ReceiptPageProps) {
                     <TableCell>{item.receipt_no}</TableCell>
                   <TableCell>{new Date(item.date).toLocaleDateString('th-TH')}</TableCell>
                   <TableCell>{item.customer}</TableCell>
-                  <TableCell>{item.invoiceNo}</TableCell>
+                  <TableCell>{item.invoice_ref}</TableCell>
                   <TableCell className="text-right">
                     ฿{item.amount.toLocaleString()}
                   </TableCell>
@@ -772,7 +748,7 @@ export default function ReceiptPage({ userRole }: ReceiptPageProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-gray-500">อ้างอิงใบแจ้งหนี้</Label>
-                  <p className="mt-1">{selectedItem.invoiceNo}</p>
+                  <p className="mt-1">{selectedItem.invoice_ref}</p>
                 </div>
                 <div>
                   <Label className="text-gray-500">จำนวนเงิน</Label>

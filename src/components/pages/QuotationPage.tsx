@@ -12,7 +12,7 @@ import {
   TableRow,
 } from '../ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Plus, Edit, Trash2, Eye, Search, Printer, FileText, Clock, CheckCircle2, XCircle, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, Eye, Search, Printer, FileText, Clock, CheckCircle2, XCircle, ChevronDown } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import {
   DropdownMenu,
@@ -38,8 +38,8 @@ import {
   AlertDialogTitle,
 } from '../ui/alert-dialog';
 import { Label } from '../ui/label';
-import { Textarea } from '../ui/textarea';
 import { toast } from 'sonner';
+import TaxInvoiceForm from '../TaxInvoiceForm';
 
 interface QuotationPageProps {
   userRole: UserRole;
@@ -49,8 +49,31 @@ interface Quotation {
   id: number;
   quotation_number: string;
   date: string;
-  customer: string;
-  amount: number;
+  customer?: string;
+  customer_code?: string;
+  customer_name?: string;
+  customer_address?: string;
+  customer_tax_id?: string;
+  customer_phone?: string;
+  customer_email?: string;
+  reference_doc?: string;
+  shipping_address?: string;
+  shipping_phone?: string;
+  items?: Array<{
+    id: string;
+    description: string;
+    amount: number;
+    productId?: number;
+  }>;
+  notes?: string;
+  discount?: number;
+  vat_rate?: number;
+  subtotal?: number;
+  discount_amount?: number;
+  after_discount?: number;
+  vat?: number;
+  grand_total?: number;
+  amount?: number;
   status: 'ร่าง' | 'รออนุมัติ' | 'อนุมัติแล้ว' | 'ยกเลิก';
   description?: string;
   valid_until?: string;
@@ -63,20 +86,10 @@ export default function QuotationPage({ userRole }: QuotationPageProps) {
   const [data, setData] = useState<Quotation[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [showQuotationForm, setShowQuotationForm] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Quotation | null>(null);
-  const [formData, setFormData] = useState({
-    quotation_number: '',
-    customer: '',
-    date: '',
-    amount: '',
-    description: '',
-    valid_until: '',
-    status: 'ร่าง' as 'ร่าง' | 'รออนุมัติ' | 'อนุมัติแล้ว' | 'ยกเลิก',
-  });
 
   const canEdit = userRole === 'admin' || userRole === 'account';
   const canDelete = userRole === 'admin' || userRole === 'account';
@@ -104,79 +117,10 @@ export default function QuotationPage({ userRole }: QuotationPageProps) {
     ยกเลิก: data.filter((item) => item.status === 'ยกเลิก').length,
   };
 
-  const generateQuotationNumber = () => {
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const count = data.length + 1;
-    return `QT-${year}${month}-${String(count).padStart(3, '0')}`;
-  };
-
-  const handleAdd = async () => {
-    try {
-      const payload = {
-        quotation_number: formData.quotation_number || generateQuotationNumber(),
-        date: formData.date,
-        customer: formData.customer,
-        amount: Number(formData.amount),
-        status: formData.status,
-        description: formData.description,
-        valid_until: formData.valid_until || null,
-      };
-
-      await axios.post(API_URL, payload);
-      toast.success('สร้างใบเสนอราคาสำเร็จ');
-      setIsAddDialogOpen(false);
-      setFormData({ quotation_number: '', customer: '', date: '', amount: '', description: '', valid_until: '', status: 'ร่าง' });
-      fetchQuotations();
-    } catch (error: any) {
-      console.error('Error adding quotation:', error);
-      toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาดในการสร้างใบเสนอราคา');
-    }
-  };
-
-  const handleEdit = (item: Quotation) => {
-    if (!canEdit) {
-      toast.error('คุณไม่มีสิทธิ์แก้ไขข้อมูล');
-      return;
-    }
-    setSelectedItem(item);
-    setFormData({
-      quotation_number: item.quotation_number,
-      customer: item.customer,
-      date: item.date,
-      amount: String(item.amount),
-      description: item.description || '',
-      valid_until: item.valid_until || '',
-      status: item.status,
-    });
-    setIsEditDialogOpen(true);
-  };
-
-  const handleUpdate = async () => {
-    if (!selectedItem) return;
-
-    try {
-      const payload = {
-        quotation_number: formData.quotation_number,
-        date: formData.date,
-        customer: formData.customer,
-        amount: Number(formData.amount),
-        status: formData.status,
-        description: formData.description,
-        valid_until: formData.valid_until || null,
-      };
-
-      await axios.put(`${API_URL}/${selectedItem.id}`, payload);
-      toast.success('แก้ไขใบเสนอราคาสำเร็จ');
-      setIsEditDialogOpen(false);
-      setSelectedItem(null);
-      setFormData({ quotation_number: '', customer: '', date: '', amount: '', description: '', valid_until: '', status: 'ร่าง' });
-      fetchQuotations();
-    } catch (error: any) {
-      console.error('Error updating quotation:', error);
-      toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาดในการแก้ไขใบเสนอราคา');
-    }
+  const handleSaveQuotation = () => {
+    // TaxInvoiceForm บันทึกข้อมูลให้เองแล้ว ไม่ต้องบันทึกซ้ำ
+    setShowQuotationForm(false);
+    fetchQuotations();
   };
 
   const handleView = (item: Quotation) => {
@@ -247,10 +191,21 @@ export default function QuotationPage({ userRole }: QuotationPageProps) {
   const filteredData = data.filter((item) => {
     const matchesSearch =
       item.quotation_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.customer.toLowerCase().includes(searchTerm.toLowerCase());
+      (item.customer_name || item.customer || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || item.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
+
+  // ถ้ากำลังแสดงฟอร์ม ให้แสดงฟอร์มเต็มหน้าจอแทนที่หน้ารายการ
+  if (showQuotationForm) {
+    return (
+      <TaxInvoiceForm
+        documentType="quotation"
+        onSave={handleSaveQuotation}
+        onCancel={() => setShowQuotationForm(false)}
+      />
+    );
+  }
 
   const handlePrint = (item: Quotation) => {
     const printWindow = window.open('', '_blank');
@@ -339,7 +294,7 @@ export default function QuotationPage({ userRole }: QuotationPageProps) {
           <tbody>
             <tr>
               <td>รวมทั้งสิ้น</td>
-              <td class="text-right">฿${item.amount.toLocaleString()}</td>
+              <td class="text-right">฿${(item.grand_total || item.amount || 0).toLocaleString()}</td>
             </tr>
           </tbody>
         </table>
@@ -447,10 +402,7 @@ export default function QuotationPage({ userRole }: QuotationPageProps) {
                 </p>
               )}
             </div>
-            <Button onClick={() => {
-              setFormData({ quotation_number: generateQuotationNumber(), customer: '', date: '', amount: '', description: '', valid_until: '', status: 'ร่าง' });
-              setIsAddDialogOpen(true);
-            }}>
+            <Button onClick={() => setShowQuotationForm(true)}>
               <Plus className="w-4 h-4 mr-2" />
               สร้างใบเสนอราคา
             </Button>
@@ -485,9 +437,9 @@ export default function QuotationPage({ userRole }: QuotationPageProps) {
                 <TableRow key={item.id}>
                   <TableCell>{item.quotation_number}</TableCell>
                   <TableCell>{new Date(item.date).toLocaleDateString('th-TH')}</TableCell>
-                  <TableCell>{item.customer}</TableCell>
+                  <TableCell>{item.customer_name || item.customer || '-'}</TableCell>
                   <TableCell className="text-right">
-                    ฿{item.amount.toLocaleString()}
+                    ฿{(item.grand_total || item.amount || 0).toLocaleString()}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -533,14 +485,6 @@ export default function QuotationPage({ userRole }: QuotationPageProps) {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleEdit(item)}
-                        disabled={!canEdit}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
                         onClick={() => handleDeleteClick(item)}
                         disabled={!canDelete}
                       >
@@ -554,150 +498,6 @@ export default function QuotationPage({ userRole }: QuotationPageProps) {
           </Table>
         </CardContent>
       </Card>
-
-      {/* Add Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>สร้างใบเสนอราคาใหม่</DialogTitle>
-            <DialogDescription>กรอกข้อมูลใบเสนอราคา</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>เลขที่เอกสาร</Label>
-                <Input
-                  placeholder="QT-YYYYMM-XXX"
-                  value={formData.quotation_number}
-                  onChange={(e) => setFormData({ ...formData, quotation_number: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>วันที่</Label>
-                <Input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>ลูกค้า</Label>
-              <Input
-                placeholder="ชื่อลูกค้า"
-                value={formData.customer}
-                onChange={(e) => setFormData({ ...formData, customer: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>จำนวนเงิน</Label>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>ใช้ได้ถึงวันที่ (ถ้ามี)</Label>
-                <Input
-                  type="date"
-                  value={formData.valid_until}
-                  onChange={(e) => setFormData({ ...formData, valid_until: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>รายละเอียด</Label>
-              <Textarea
-                placeholder="รายละเอียดเพิ่มเติม"
-                rows={4}
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                ยกเลิก
-              </Button>
-              <Button onClick={handleAdd}>บันทึก</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>แก้ไขใบเสนอราคา</DialogTitle>
-            <DialogDescription>แก้ไขข้อมูลใบเสนอราคา {selectedItem?.quotation_number}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>เลขที่เอกสาร</Label>
-                <Input
-                  placeholder="QT-YYYYMM-XXX"
-                  value={formData.quotation_number}
-                  onChange={(e) => setFormData({ ...formData, quotation_number: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>วันที่</Label>
-                <Input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>ลูกค้า</Label>
-              <Input
-                placeholder="ชื่อลูกค้า"
-                value={formData.customer}
-                onChange={(e) => setFormData({ ...formData, customer: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>จำนวนเงิน</Label>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>ใช้ได้ถึงวันที่ (ถ้ามี)</Label>
-                <Input
-                  type="date"
-                  value={formData.valid_until}
-                  onChange={(e) => setFormData({ ...formData, valid_until: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>รายละเอียด</Label>
-              <Textarea
-                placeholder="รายละเอียดเพิ่มเติม"
-                rows={4}
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                ยกเลิก
-              </Button>
-              <Button onClick={handleUpdate}>บันทึกการเปลี่ยนแปลง</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
@@ -720,12 +520,12 @@ export default function QuotationPage({ userRole }: QuotationPageProps) {
               </div>
               <div>
                 <Label className="text-gray-500">ลูกค้า</Label>
-                <p className="mt-1">{selectedItem.customer}</p>
+                <p className="mt-1">{selectedItem.customer_name || selectedItem.customer || '-'}</p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-gray-500">จำนวนเงิน</Label>
-                  <p className="mt-1">฿{selectedItem.amount.toLocaleString()}</p>
+                  <p className="mt-1">฿{(selectedItem.grand_total || selectedItem.amount || 0).toLocaleString()}</p>
                 </div>
                 {selectedItem.valid_until && (
                   <div>

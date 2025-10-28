@@ -35,23 +35,23 @@ interface VoucherItem {
   amount: number;
 }
 
-interface ReceiveVoucherFormProps {
+interface PaymentVoucherFormProps {
   onSave: (data: any) => void;
   onCancel: () => void;
   editData?: any;
   isEditMode?: boolean;
 }
 
-export default function ReceiveVoucherForm({
+export default function PaymentVoucherForm({
   onSave,
   onCancel,
   editData,
   isEditMode = false,
-}: ReceiveVoucherFormProps) {
+}: PaymentVoucherFormProps) {
   const today = new Date().toISOString().split('T')[0];
 
   const [voucherNo, setVoucherNo] = useState(() => {
-    return `RV${Date.now().toString().slice(-6)}`;
+    return `PV${Date.now().toString().slice(-6)}`;
   });
   const [voucherDate, setVoucherDate] = useState(today);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -96,9 +96,9 @@ export default function ReceiveVoucherForm({
           setDiscount(Number(editData.discount) || 0);
           setVatRate(Number(editData.vat_rate) || 7);
 
-          // ตั้งค่าลูกค้า
-          if (editData.payer_id) {
-            const customer = customerList.find(c => c.id === editData.payer_id);
+          // ตั้งค่าผู้รับเงิน
+          if (editData.payee_id) {
+            const customer = customerList.find(c => c.id === editData.payee_id);
             if (customer) {
               setSelectedCustomer(customer);
             }
@@ -198,7 +198,7 @@ export default function ReceiveVoucherForm({
 
   const handleSave = async () => {
     if (!selectedCustomer) {
-      toast.error('กรุณาเลือกลูกค้า/ผู้จ่ายเงิน');
+      toast.error('กรุณาเลือกผู้รับเงิน');
       return;
     }
 
@@ -210,8 +210,8 @@ export default function ReceiveVoucherForm({
     const data = {
       voucher_no: voucherNo,
       date: voucherDate,
-      payer: selectedCustomer.name,
-      payer_id: selectedCustomer.id,
+      payee: selectedCustomer.name,
+      payee_id: selectedCustomer.id,
       payment_method: paymentMethod,
       payment_date: paymentDate,
       tax_type: taxType,
@@ -228,13 +228,13 @@ export default function ReceiveVoucherForm({
       vat: calculateVat(),
       grand_total: calculateGrandTotal(),
       amount: calculateGrandTotal(),
-      status: isEditMode && editData?.status ? editData.status : 'รอรับ',
+      status: isEditMode && editData?.status ? editData.status : 'รอจ่าย',
     };
 
     try {
       const url = isEditMode && editData?.id
-        ? `http://127.0.0.1:8000/api/receive-vouchers/${editData.id}`
-        : 'http://127.0.0.1:8000/api/receive-vouchers';
+        ? `http://127.0.0.1:8000/api/payment-vouchers/${editData.id}`
+        : 'http://127.0.0.1:8000/api/payment-vouchers';
 
       const method = isEditMode ? 'PUT' : 'POST';
 
@@ -249,13 +249,13 @@ export default function ReceiveVoucherForm({
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error('Backend error:', errorData);
-        throw new Error(errorData.message || `Failed to ${isEditMode ? 'update' : 'save'} receive voucher`);
+        throw new Error(errorData.message || `Failed to ${isEditMode ? 'update' : 'save'} payment voucher`);
       }
 
-      toast.success(isEditMode ? 'แก้ไขใบสำคัญรับเงินสำเร็จ' : 'บันทึกใบสำคัญรับเงินสำเร็จ');
+      toast.success(isEditMode ? 'แก้ไขใบสำคัญจ่ายเงินสำเร็จ' : 'บันทึกใบสำคัญจ่ายเงินสำเร็จ');
       onSave(data);
     } catch (error) {
-      console.error(`Error ${isEditMode ? 'updating' : 'saving'} receive voucher:`, error);
+      console.error(`Error ${isEditMode ? 'updating' : 'saving'} payment voucher:`, error);
       console.error('Data being sent:', data);
       const errorMessage = error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการบันทึก';
       toast.error(errorMessage);
@@ -268,11 +268,11 @@ export default function ReceiveVoucherForm({
         <CardContent className="p-6 space-y-6">
           {/* Header */}
           <div className="pb-4 border-b">
-            <h2 className="text-2xl font-bold text-cyan-600">
-              {isEditMode ? 'แก้ไขใบสำคัญรับเงิน' : 'สร้างใบสำคัญรับเงินใหม่'}
+            <h2 className="text-2xl font-bold text-red-600">
+              {isEditMode ? 'แก้ไขใบสำคัญจ่ายเงิน' : 'สร้างใบสำคัญจ่ายเงินใหม่'}
             </h2>
             <p className="text-sm text-gray-500">
-              {isEditMode ? 'แก้ไขข้อมูลใบสำคัญรับเงิน' : 'กรอกข้อมูลใบสำคัญรับเงิน'}
+              {isEditMode ? 'แก้ไขข้อมูลใบสำคัญจ่ายเงิน' : 'กรอกข้อมูลใบสำคัญจ่ายเงิน'}
             </p>
           </div>
 
@@ -287,7 +287,7 @@ export default function ReceiveVoucherForm({
               <Input type="date" value={voucherDate} onChange={(e) => setVoucherDate(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>วิธีการชำระเงิน</Label>
+              <Label>วิธีการจ่ายเงิน</Label>
               <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                 <SelectTrigger>
                   <SelectValue />
@@ -303,7 +303,7 @@ export default function ReceiveVoucherForm({
 
           {/* Customer Selection */}
           <div className="space-y-2">
-            <Label>ลูกค้า/ผู้จ่ายเงิน</Label>
+            <Label>ผู้รับเงิน/คู่ค้า</Label>
             <Popover open={openCustomer} onOpenChange={setOpenCustomer}>
               <PopoverTrigger asChild>
                 <Button
@@ -312,14 +312,14 @@ export default function ReceiveVoucherForm({
                   aria-expanded={openCustomer}
                   className="justify-between w-full"
                 >
-                  {selectedCustomer ? selectedCustomer.name : 'เลือกลูกค้า...'}
+                  {selectedCustomer ? selectedCustomer.name : 'เลือกผู้รับเงิน...'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[600px] p-0">
                 <Command>
-                  <CommandInput placeholder="ค้นหาลูกค้า..." />
+                  <CommandInput placeholder="ค้นหาผู้รับเงิน..." />
                   <CommandList>
-                    <CommandEmpty>ไม่พบลูกค้า</CommandEmpty>
+                    <CommandEmpty>ไม่พบผู้รับเงิน</CommandEmpty>
                     <CommandGroup>
                       {customers.map((customer) => (
                         <CommandItem
@@ -461,7 +461,7 @@ export default function ReceiveVoucherForm({
           {/* Additional Fields */}
           <div className="grid grid-cols-4 gap-4">
             <div className="space-y-2">
-              <Label>วันที่รับเงิน</Label>
+              <Label>วันที่จ่ายเงิน</Label>
               <Input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
             </div>
             <div className="space-y-2">
@@ -499,11 +499,11 @@ export default function ReceiveVoucherForm({
           </div>
 
           <div className="space-y-2">
-            <Label>พนักงานขาย</Label>
+            <Label>พนักงานที่ทำรายการ</Label>
             <Input
               value={salesperson}
               onChange={(e) => setSalesperson(e.target.value)}
-              placeholder="ชื่อพนักงานขาย..."
+              placeholder="ชื่อพนักงาน..."
             />
           </div>
 
@@ -560,7 +560,7 @@ export default function ReceiveVoucherForm({
               <div className="pt-3 border-t">
                 <div className="flex items-center justify-between text-lg font-bold">
                   <span>ยอดรวมสุทธิ</span>
-                  <span className="text-cyan-600">
+                  <span className="text-red-600">
                     {calculateGrandTotal().toLocaleString()} บาท
                   </span>
                 </div>
@@ -570,7 +570,7 @@ export default function ReceiveVoucherForm({
 
           {/* Action Buttons */}
           <div className="flex justify-start gap-2 pt-4 border-t">
-            <Button onClick={handleSave} className="bg-cyan-500 hover:bg-cyan-600">
+            <Button onClick={handleSave} className="bg-red-500 hover:bg-red-600">
               บันทึก
             </Button>
             <Button variant="outline" onClick={onCancel} className="text-red-500 border-red-500">

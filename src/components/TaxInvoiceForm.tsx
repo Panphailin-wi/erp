@@ -39,9 +39,10 @@ interface InvoiceItem {
 }
 
 interface TaxInvoiceFormProps {
-  documentType: 'invoice' | 'receipt';
+  documentType: 'invoice' | 'receipt' | 'quotation' | 'purchase_order';
   onSave: (data: any) => void;
   onCancel: () => void;
+  editData?: any;
 }
 
 
@@ -72,11 +73,19 @@ export default function TaxInvoiceForm({
   documentType,
   onSave,
   onCancel,
+  editData,
 }: TaxInvoiceFormProps) {
   const today = new Date().toISOString().split('T')[0];
 
   const [docNumber, setDocNumber] = useState(() => {
-    const prefix = documentType === 'invoice' ? 'TINV' : 'REC';
+    if (editData) {
+      return editData.invoice_no || editData.quotation_number || editData.po_number || editData.receipt_no || '';
+    }
+    let prefix = 'TINV';
+    if (documentType === 'invoice') prefix = 'TINV';
+    else if (documentType === 'quotation') prefix = 'QT';
+    else if (documentType === 'purchase_order') prefix = 'PO';
+    else prefix = 'REC';
     return `${prefix}${Date.now().toString().slice(-6)}`;
   });
   const [docDate, setDocDate] = useState(today);
@@ -122,7 +131,9 @@ export default function TaxInvoiceForm({
   }, []);
 
   const getDocumentTitle = () => {
-    return documentType === 'invoice' ? 'ใบแจ้งหนี้/ใบกำกับภาษี' : 'ใบเสร็จรับเงิน/ใบกำกับภาษี';
+    if (documentType === 'invoice') return 'ใบแจ้งหนี้/ใบกำกับภาษี';
+    if (documentType === 'quotation') return 'ใบเสนอราคา';
+    return 'ใบเสร็จรับเงิน/ใบกำกับภาษี';
   };
 
   const handleAddItem = () => {
@@ -142,7 +153,7 @@ export default function TaxInvoiceForm({
               ...item,
               productId: product.id,
               description: product.name,
-              amount: Number(product.price) || 0,
+              amount: Number(product.sale_price) || 0, // แก้เป็น sale_price
             }
           : item
       )
@@ -197,48 +208,158 @@ export default function TaxInvoiceForm({
       return;
     }
 
-    const data = {
-      documentType: documentType,
-      docNumber,
-      docDate,
-      paymentDate,
-      taxType,
-      salesperson,
-      customer: selectedCustomer,
-      selectedDocument,
-      items,
-      notes,
-      discount,
-      vatRate,
-      shippingAddress,
-      shippingPhone,
-      subtotal: calculateSubtotal(),
-      discountAmount: calculateDiscountAmount(),
-      afterDiscount: calculateAfterDiscount(),
-      vat: calculateVat(),
-      grandTotal: calculateGrandTotal(),
-    };
+    // เลือก API endpoint ตาม documentType
+    let apiUrl: string;
+    if (documentType === 'invoice') {
+      apiUrl = 'http://127.0.0.1:8000/api/invoices';
+    } else if (documentType === 'quotation') {
+      apiUrl = 'http://127.0.0.1:8000/api/quotations';
+    } else if (documentType === 'purchase_order') {
+      apiUrl = 'http://127.0.0.1:8000/api/purchase-orders';
+    } else {
+      apiUrl = 'http://127.0.0.1:8000/api/receipts';
+    }
+
+    // สร้าง payload ตาม API ที่จะเรียก
+    let payload;
+    if (documentType === 'invoice') {
+      // payload สำหรับ invoices API
+      payload = {
+        invoice_no: docNumber,
+        invoice_date: docDate,
+        customer_code: selectedCustomer.code,
+        customer_name: selectedCustomer.name,
+        customer_address: selectedCustomer.address,
+        customer_tax_id: selectedCustomer.tax_id,
+        customer_phone: selectedCustomer.phone,
+        customer_email: selectedCustomer.email,
+        reference_doc: selectedDocument,
+        shipping_address: shippingAddress,
+        shipping_phone: shippingPhone,
+        items: JSON.stringify(items), // แปลงเป็น JSON string
+        notes,
+        discount,
+        vat_rate: vatRate,
+        subtotal: calculateSubtotal(),
+        discount_amount: calculateDiscountAmount(),
+        after_discount: calculateAfterDiscount(),
+        vat: calculateVat(),
+        grand_total: calculateGrandTotal(),
+        status: 'draft',
+        due_date: null,
+      };
+    } else if (documentType === 'quotation') {
+      // payload สำหรับ quotations API
+      payload = {
+        quotation_number: docNumber,
+        date: docDate,
+        customer_code: selectedCustomer.code,
+        customer_name: selectedCustomer.name,
+        customer_address: selectedCustomer.address,
+        customer_tax_id: selectedCustomer.tax_id,
+        customer_phone: selectedCustomer.phone,
+        customer_email: selectedCustomer.email,
+        reference_doc: selectedDocument,
+        shipping_address: shippingAddress,
+        shipping_phone: shippingPhone,
+        items: JSON.stringify(items), // แปลงเป็น JSON string
+        notes,
+        discount,
+        vat_rate: vatRate,
+        subtotal: calculateSubtotal(),
+        discount_amount: calculateDiscountAmount(),
+        after_discount: calculateAfterDiscount(),
+        vat: calculateVat(),
+        grand_total: calculateGrandTotal(),
+        status: 'ร่าง',
+        valid_until: null,
+      };
+    } else if (documentType === 'purchase_order') {
+      // payload สำหรับ purchase_orders API (ใช้ supplier แทน customer)
+      payload = {
+        po_number: docNumber,
+        date: docDate,
+        supplier_code: selectedCustomer.code,
+        supplier_name: selectedCustomer.name,
+        supplier_address: selectedCustomer.address,
+        supplier_tax_id: selectedCustomer.tax_id,
+        supplier_phone: selectedCustomer.phone,
+        supplier_email: selectedCustomer.email,
+        reference_doc: selectedDocument,
+        shipping_address: shippingAddress,
+        shipping_phone: shippingPhone,
+        items: JSON.stringify(items), // แปลงเป็น JSON string
+        notes,
+        discount,
+        vat_rate: vatRate,
+        subtotal: calculateSubtotal(),
+        discount_amount: calculateDiscountAmount(),
+        after_discount: calculateAfterDiscount(),
+        vat: calculateVat(),
+        grand_total: calculateGrandTotal(),
+        status: 'ร่าง',
+        expected_delivery_date: null,
+      };
+    } else {
+      // payload สำหรับ receipts API
+      payload = {
+        receipt_no: docNumber,
+        date: docDate,
+        customer: selectedCustomer.name,
+        invoice_ref: selectedDocument || '-',
+        amount: calculateGrandTotal(),
+        status: 'ร่าง',
+        description: notes || undefined,
+      };
+    }
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/tax-invoices', {
+      console.log('Sending to API:', apiUrl);
+      console.log('Payload:', payload);
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
 
-      const result = await response.json();
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
 
-      if (response.ok && result.status === 'success') {
-        toast.success('บันทึกเอกสารสำเร็จ');
-        onSave(data);
+      // ตรวจสอบว่า response เป็น JSON หรือไม่
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Response is not JSON:', text.substring(0, 200));
+        toast.error('เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง กรุณาตรวจสอบ console');
+        return;
+      }
+
+      const result = await response.json();
+      console.log('Response data:', result);
+
+      if (response.ok) {
+        let docTypeName = 'ใบเสร็จรับเงิน';
+        if (documentType === 'invoice') docTypeName = 'ใบแจ้งหนี้';
+        else if (documentType === 'quotation') docTypeName = 'ใบเสนอราคา';
+        toast.success(`บันทึก${docTypeName}สำเร็จ`);
+        onSave(payload);
       } else {
-        toast.error('เกิดข้อผิดพลาด: ' + (result.message || 'ไม่สามารถบันทึกได้'));
+        console.error('API Error:', result);
+        if (result.errors) {
+          // Laravel validation errors
+          const errorMessages = Object.values(result.errors).flat().join(', ');
+          toast.error('ข้อผิดพลาด: ' + errorMessages);
+        } else {
+          toast.error('เกิดข้อผิดพลาด: ' + (result.message || 'ไม่สามารถบันทึกได้'));
+        }
       }
     } catch (error) {
       console.error('Error:', error);
-      toast.error('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+      toast.error('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้: ' + error);
     }
   };
 
@@ -453,7 +574,7 @@ export default function TaxInvoiceForm({
                               <SelectContent>
                                 {products.map((product) => (
                                   <SelectItem key={product.id} value={product.id.toString()}>
-                                    {product.name} - ฿{Number(product.price).toLocaleString()}
+                                    {product.name} - ฿{Number(product.sale_price).toLocaleString()}
                                   </SelectItem>
                                 ))}
                               </SelectContent>

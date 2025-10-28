@@ -102,8 +102,50 @@ export default function CustomerPage({ userRole }: CustomerPageProps) {
     return `CUS-${String(nextNum).padStart(4, '0')}`;
   };
 
+  const validateForm = () => {
+    const errors: string[] = [];
+
+    if (!formData.name.trim()) {
+      errors.push('กรุณากรอกชื่อลูกค้า/คู่ค้า');
+    }
+
+    if (!formData.type) {
+      errors.push('กรุณาเลือกประเภท (ลูกค้า/คู่ค้า/ทั้งคู่)');
+    }
+
+    if (!formData.contact.trim()) {
+      errors.push('กรุณากรอกเบอร์โทรศัพท์');
+    } else if (!/^[0-9]{9,10}$/.test(formData.contact.replace(/-/g, ''))) {
+      errors.push('เบอร์โทรศัพท์ไม่ถูกต้อง (ต้องเป็นตัวเลข 9-10 หลัก)');
+    }
+
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.push('รูปแบบอีเมลไม่ถูกต้อง');
+    }
+
+    if (formData.taxId && formData.taxId.trim()) {
+      const taxIdClean = formData.taxId.replace(/-/g, '');
+      if (!/^[0-9]{13}$/.test(taxIdClean)) {
+        errors.push('เลขประจำตัวผู้เสียภาษีไม่ถูกต้อง (ต้องเป็นตัวเลข 13 หลัก)');
+      }
+    }
+
+    if (!formData.address.trim()) {
+      errors.push('กรุณากรอกที่อยู่');
+    }
+
+    return errors;
+  };
+
   const handleAdd = async () => {
     try {
+      // Validate form
+      const errors = validateForm();
+      if (errors.length > 0) {
+        errors.forEach(error => toast.error(error));
+        return;
+      }
+
       // Ensure we have a code
       const codeToUse = formData.code || generateNextCode();
 
@@ -128,7 +170,19 @@ export default function CustomerPage({ userRole }: CustomerPageProps) {
       fetchCustomers();
     } catch (error) {
       console.error(error);
-      toast.error('ไม่สามารถเพิ่มลูกค้าได้');
+      if (error && typeof error === 'object' && 'response' in error) {
+        const response = (error as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } }).response;
+        const errorMessage = response?.data?.message || 'ไม่สามารถเพิ่มลูกค้าได้';
+        const errorDetails = response?.data?.errors;
+
+        if (errorDetails) {
+          Object.values(errorDetails).flat().forEach((msg) => toast.error(msg));
+        } else {
+          toast.error(errorMessage);
+        }
+      } else {
+        toast.error('ไม่สามารถเพิ่มลูกค้าได้');
+      }
     }
   };
 
@@ -159,6 +213,14 @@ export default function CustomerPage({ userRole }: CustomerPageProps) {
 
   const handleUpdate = async () => {
     if (!selectedItem) return;
+
+    // Validate form
+    const errors = validateForm();
+    if (errors.length > 0) {
+      errors.forEach(error => toast.error(error));
+      return;
+    }
+
     try {
       await customerService.update(selectedItem.id, {
         code: formData.code,
@@ -181,7 +243,19 @@ export default function CustomerPage({ userRole }: CustomerPageProps) {
       fetchCustomers();
     } catch (error) {
       console.error(error);
-      toast.error('ไม่สามารถอัปเดตข้อมูลได้');
+      if (error && typeof error === 'object' && 'response' in error) {
+        const response = (error as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } }).response;
+        const errorMessage = response?.data?.message || 'ไม่สามารถอัปเดตข้อมูลได้';
+        const errorDetails = response?.data?.errors;
+
+        if (errorDetails) {
+          Object.values(errorDetails).flat().forEach((msg) => toast.error(msg));
+        } else {
+          toast.error(errorMessage);
+        }
+      } else {
+        toast.error('ไม่สามารถอัปเดตข้อมูลได้');
+      }
     }
   };
 

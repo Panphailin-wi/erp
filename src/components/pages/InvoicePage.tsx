@@ -48,20 +48,37 @@ interface InvoicePageProps {
 
 interface Invoice {
   id: number;
-  doc_number: string;
-  doc_date: string;
+  invoice_no: string;
+  invoice_date: string;
+  customer_code?: string;
   customer_name: string;
-  grand_total: number;
-  status: 'draft' | 'approved' | 'cancelled';
+  customer_address?: string;
+  customer_tax_id?: string;
+  customer_phone?: string;
+  customer_email?: string;
+  reference_doc?: string;
+  shipping_address?: string;
+  shipping_phone?: string;
+  items: any[];
   notes?: string;
-  document_type: 'invoice' | 'receipt';
+  discount: number;
+  vat_rate: number;
+  subtotal: number;
+  discount_amount: number;
+  after_discount: number;
+  vat: number;
+  grand_total: number;
+  status: 'draft' | 'sent' | 'paid' | 'cancelled';
+  due_date?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 
 
 
 export default function InvoicePage({ userRole }: InvoicePageProps) {
-  const API_URL = "http://127.0.0.1:8000/api/tax-invoices";
+  const API_URL = "http://127.0.0.1:8000/api/invoices"; // เปลี่ยนเป็น invoices API แยกจาก receipts แล้ว
   const [data, setData] = useState<Invoice[]>([]);
 
 useEffect(() => {
@@ -73,6 +90,7 @@ const fetchData = async () => {
     const res = await fetch(API_URL);
     if (res.ok) {
       const json = await res.json();
+      // ไม่ต้องกรอง document_type อีกต่อไปเพราะตาราง invoices แยกแล้ว
       setData(json);
     } else {
       toast.error("โหลดข้อมูลไม่สำเร็จ");
@@ -105,7 +123,7 @@ const fetchData = async () => {
   // Calculate status counts
   const statusCounts = {
     ร่าง: data.filter((item) => item.status === 'draft').length,
-    รอชำระ: data.filter((item) => item.status === 'approved').length,
+    รอชำระ: data.filter((item) => item.status === 'sent').length,
     ชำระแล้ว: 0, // ไม่มีสถานะนี้ในระบบใหม่
     ยกเลิก: data.filter((item) => item.status === 'cancelled').length,
   };
@@ -148,7 +166,7 @@ const fetchData = async () => {
     setSelectedItem(item);
     setFormData({
       customer: item.customer_name,
-      date: item.doc_date,
+      date: item.invoice_date,
       amount: String(item.grand_total),
       description: item.notes || '',
     });
@@ -223,7 +241,7 @@ const handleUpdate = async () => {
 };
 
 
-  const handleStatusChange = async (item: Invoice, newStatus: 'draft' | 'approved' | 'cancelled') => {
+  const handleStatusChange = async (item: Invoice, newStatus: 'draft' | 'sent' | 'cancelled') => {
     if (!canEdit) {
       toast.error('คุณไม่มีสิทธิ์เปลี่ยนสถานะ');
       return;
@@ -245,7 +263,7 @@ const handleUpdate = async () => {
             d.id === item.id ? { ...d, status: newStatus } : d
           )
         );
-        const statusText = newStatus === 'draft' ? 'ร่าง' : newStatus === 'approved' ? 'อนุมัติแล้ว' : 'ยกเลิก';
+        const statusText = newStatus === 'draft' ? 'ร่าง' : newStatus === 'sent' ? 'อนุมัติแล้ว' : 'ยกเลิก';
         toast.success(`เปลี่ยนสถานะเป็น "${statusText}" สำเร็จ`);
       } else {
         toast.error("เปลี่ยนสถานะไม่สำเร็จ");
@@ -259,12 +277,12 @@ const handleUpdate = async () => {
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
       'draft': 'outline',
-      'approved': 'default',
+      'sent': 'default',
       'cancelled': 'destructive',
     };
     const labels: Record<string, string> = {
       'draft': 'ร่าง',
-      'approved': 'อนุมัติแล้ว',
+      'sent': 'อนุมัติแล้ว',
       'cancelled': 'ยกเลิก',
     };
     return <Badge variant={variants[status] || 'outline'}>{labels[status] || status}</Badge>;
@@ -272,8 +290,8 @@ const handleUpdate = async () => {
 
   const filteredData = data.filter((item) => {
     const matchesSearch =
-      item.doc_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.customer_name.toLowerCase().includes(searchTerm.toLowerCase());
+      item.invoice_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.customer_name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || item.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -396,10 +414,10 @@ const handleUpdate = async () => {
           <h1>ใบแจ้งหนี้</h1>
         </div>
         <div class="info">
-          <div class="info-row"><span class="info-label">เลขที่:</span> ${item.doc_number}</div>
-          <div class="info-row"><span class="info-label">วันที่:</span> ${new Date(item.doc_date).toLocaleDateString('th-TH')}</div>
+          <div class="info-row"><span class="info-label">เลขที่:</span> ${item.invoice_no}</div>
+          <div class="info-row"><span class="info-label">วันที่:</span> ${new Date(item.invoice_date).toLocaleDateString('th-TH')}</div>
           <div class="info-row"><span class="info-label">ลูกค้า:</span> ${item.customer_name}</div>
-          <div class="info-row"><span class="info-label">สถานะ:</span> ${item.status === 'draft' ? 'ร่าง' : item.status === 'approved' ? 'อนุมัติแล้ว' : 'ยกเลิก'}</div>
+          <div class="info-row"><span class="info-label">สถานะ:</span> ${item.status === 'draft' ? 'ร่าง' : item.status === 'sent' ? 'อนุมัติแล้ว' : 'ยกเลิก'}</div>
           ${item.notes ? `<div class="info-row"><span class="info-label">รายละเอียด:</span> ${item.notes}</div>` : ''}
         </div>
         <table>
@@ -462,7 +480,7 @@ const handleUpdate = async () => {
 
         <Card
           className="text-white transition-shadow cursor-pointer bg-gradient-to-br from-yellow-400 to-yellow-500 hover:shadow-lg"
-          onClick={() => setFilterStatus('approved')}
+          onClick={() => setFilterStatus('sent')}
         >
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
@@ -564,8 +582,8 @@ const handleUpdate = async () => {
             <TableBody>
               {filteredData.map((item) => (
                 <TableRow key={item.id}>
-                  <TableCell>{item.doc_number}</TableCell>
-                  <TableCell>{new Date(item.doc_date).toLocaleDateString('th-TH')}</TableCell>
+                  <TableCell>{item.invoice_no}</TableCell>
+                  <TableCell>{new Date(item.invoice_date).toLocaleDateString('th-TH')}</TableCell>
                   <TableCell>{item.customer_name}</TableCell>
                   <TableCell className="text-right">
                     ฿{item.grand_total.toLocaleString()}
@@ -588,7 +606,7 @@ const handleUpdate = async () => {
                           <FileText className="w-4 h-4 mr-2" />
                           ร่าง
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleStatusChange(item, 'approved')}>
+                        <DropdownMenuItem onClick={() => handleStatusChange(item, 'sent')}>
                           <CheckCircle2 className="w-4 h-4 mr-2" />
                           อนุมัติแล้ว
                         </DropdownMenuItem>
@@ -694,7 +712,7 @@ const handleUpdate = async () => {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>แก้ไขใบแจ้งหนี้</DialogTitle>
-            <DialogDescription>แก้ไขข้อมูลใบแจ้งหนี้ {selectedItem?.doc_number}</DialogDescription>
+            <DialogDescription>แก้ไขข้อมูลใบแจ้งหนี้ {selectedItem?.invoice_no}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -748,18 +766,18 @@ const handleUpdate = async () => {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>รายละเอียดใบแจ้งหนี้</DialogTitle>
-            <DialogDescription>เลขที่ {selectedItem?.doc_number}</DialogDescription>
+            <DialogDescription>เลขที่ {selectedItem?.invoice_no}</DialogDescription>
           </DialogHeader>
           {selectedItem && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-gray-500">เลขที่เอกสาร</Label>
-                  <p className="mt-1">{selectedItem.doc_number}</p>
+                  <p className="mt-1">{selectedItem.invoice_no}</p>
                 </div>
                 <div>
                   <Label className="text-gray-500">วันที่</Label>
-                  <p className="mt-1">{new Date(selectedItem.doc_date).toLocaleDateString('th-TH')}</p>
+                  <p className="mt-1">{new Date(selectedItem.invoice_date).toLocaleDateString('th-TH')}</p>
                 </div>
               </div>
               <div>
@@ -794,7 +812,7 @@ const handleUpdate = async () => {
           <AlertDialogHeader>
             <AlertDialogTitle>ยืนยันการลบ</AlertDialogTitle>
             <AlertDialogDescription>
-              คุณแน่ใจหรือไม่ว่าต้องการลบใบแจ้งหนี้ {selectedItem?.doc_number}?
+              คุณแน่ใจหรือไม่ว่าต้องการลบใบแจ้งหนี้ {selectedItem?.invoice_no}?
               การดำเนินการนี้ไม่สามารถยกเลิกได้
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -811,7 +829,7 @@ const handleUpdate = async () => {
           <DialogHeader>
             <DialogTitle>ส่งใบแจ้งหนี้ทางอีเมล</DialogTitle>
             <DialogDescription>
-              ส่งใบแจ้งหนี้ {selectedItem?.doc_number} ไปยังอีเมลที่ระบุ
+              ส่งใบแจ้งหนี้ {selectedItem?.invoice_no} ไปยังอีเมลที่ระบุ
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">

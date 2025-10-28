@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import type { UserRole } from '../../types';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import PaymentVoucherForm from '../PaymentVoucherForm';
 import {
   Table,
   TableBody,
@@ -39,8 +40,6 @@ import {
   AlertDialogTitle,
 } from '../ui/alert-dialog';
 import { Label } from '../ui/label';
-import { Textarea } from '../ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { toast } from 'sonner';
 
 interface PaymentVoucherPageProps {
@@ -72,16 +71,6 @@ export default function PaymentVoucherPage({ userRole }: PaymentVoucherPageProps
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<PaymentVoucher | null>(null);
-  const [formData, setFormData] = useState({
-    payee: '',
-    date: '',
-    amount: '',
-    description: '',
-    paymentMethod: 'โอนเงิน',
-    withholdingTaxNo: '',
-    withholdingTaxAmount: '',
-    paymentDate: '',
-  });
 
   const canEdit = userRole === 'admin' || userRole === 'account';
   const canDelete = userRole === 'admin' || userRole === 'account';
@@ -94,29 +83,6 @@ export default function PaymentVoucherPage({ userRole }: PaymentVoucherPageProps
     ยกเลิก: data.filter((item) => item.status === 'ยกเลิก').length,
   };
 
-  const handleAdd = async () => {
-  try {
-    const payload = {
-      date: formData.date,
-      payee: formData.payee,
-      description: formData.description,
-      amount: Number(formData.amount),
-      status: "รออนุมัติ",
-      payment_method: formData.paymentMethod,
-      withholding_tax_no: formData.withholdingTaxNo || null,
-      withholding_tax_amount: formData.withholdingTaxAmount ? Number(formData.withholdingTaxAmount) : null,
-      payment_date: formData.paymentDate || null,
-    };
-
-    await axios.post(API_URL, payload);
-    toast.success("สร้างใบสำคัญจ่ายสำเร็จ");
-    setIsAddDialogOpen(false);
-    fetchVouchers();
-  } catch (err) {
-    console.error(err);
-    toast.error("ไม่สามารถบันทึกข้อมูลได้");
-  }
-};
 
 
   const handleEdit = (item: PaymentVoucher) => {
@@ -125,44 +91,8 @@ export default function PaymentVoucherPage({ userRole }: PaymentVoucherPageProps
       return;
     }
     setSelectedItem(item);
-    setFormData({
-      payee: item.payee,
-      date: item.date,
-      amount: String(item.amount),
-      description: item.description,
-      paymentMethod: item.paymentMethod || 'โอนเงิน',
-      withholdingTaxNo: item.withholdingTaxNo || '',
-      withholdingTaxAmount: item.withholdingTaxAmount ? String(item.withholdingTaxAmount) : '',
-      paymentDate: item.paymentDate || '',
-    });
     setIsEditDialogOpen(true);
   };
-
-  const handleUpdate = async () => {
-  if (!selectedItem) return;
-
-  try {
-    const payload = {
-      date: formData.date,
-      payee: formData.payee,
-      description: formData.description,
-      amount: Number(formData.amount),
-      status: selectedItem.status,
-      payment_method: formData.paymentMethod,
-      withholding_tax_no: formData.withholdingTaxNo || null,
-      withholding_tax_amount: formData.withholdingTaxAmount ? Number(formData.withholdingTaxAmount) : null,
-      payment_date: formData.paymentDate || null,
-    };
-
-    await axios.put(`${API_URL}/${selectedItem.id}`, payload);
-    toast.success("อัปเดตข้อมูลสำเร็จ");
-    setIsEditDialogOpen(false);
-    fetchVouchers();
-  } catch (err) {
-    console.error(err);
-    toast.error("ไม่สามารถอัปเดตข้อมูลได้");
-  }
-};
 
 
   const handleView = (item: PaymentVoucher) => {
@@ -446,203 +376,41 @@ useEffect(() => {
         </CardContent>
       </Card>
 
-      {/* Add Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>สร้างใบสำคัญจ่ายเงินใหม่</DialogTitle>
-            <DialogDescription>กรอกข้อมูลใบสำคัญจ่ายเงิน</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>วันที่</Label>
-                <Input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>ผู้รับเงิน</Label>
-                <Input
-                  placeholder="ชื่อผู้รับเงิน"
-                  value={formData.payee}
-                  onChange={(e) => setFormData({ ...formData, payee: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>จำนวนเงิน</Label>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>วิธีชำระเงิน</Label>
-                <Select
-                  value={formData.paymentMethod}
-                  onValueChange={(value) => setFormData({ ...formData, paymentMethod: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="เงินสด">เงินสด</SelectItem>
-                    <SelectItem value="โอนเงิน">โอนเงิน</SelectItem>
-                    <SelectItem value="เช็ค">เช็ค</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>เลขที่ใบหัก ณ ที่จ่าย (ถ้ามี)</Label>
-                <Input
-                  placeholder="WHT-YYYY-XXX"
-                  value={formData.withholdingTaxNo}
-                  onChange={(e) => setFormData({ ...formData, withholdingTaxNo: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>ยอดเงินหัก ณ ที่จ่าย (ถ้ามี)</Label>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={formData.withholdingTaxAmount}
-                  onChange={(e) => setFormData({ ...formData, withholdingTaxAmount: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>วันที่จ่ายเงิน</Label>
-              <Input
-                type="date"
-                value={formData.paymentDate}
-                onChange={(e) => setFormData({ ...formData, paymentDate: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>รายละเอียด</Label>
-              <Textarea
-                placeholder="รายละเอียดการจ่ายเงิน"
-                rows={4}
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                ยกเลิก
-              </Button>
-              <Button onClick={handleAdd}>บันทึก</Button>
-            </div>
+      {/* Add Form */}
+      {isAddDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto bg-black/50">
+          <div className="w-full max-w-6xl my-8">
+            <PaymentVoucherForm
+              onSave={() => {
+                setIsAddDialogOpen(false);
+                fetchVouchers();
+              }}
+              onCancel={() => setIsAddDialogOpen(false)}
+            />
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>แก้ไขใบสำคัญจ่ายเงิน</DialogTitle>
-            <DialogDescription>แก้ไขข้อมูล {selectedItem?.id}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>วันที่</Label>
-                <Input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>ผู้รับเงิน</Label>
-                <Input
-                  placeholder="ชื่อผู้รับเงิน"
-                  value={formData.payee}
-                  onChange={(e) => setFormData({ ...formData, payee: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>จำนวนเงิน</Label>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>วิธีชำระเงิน</Label>
-                <Select
-                  value={formData.paymentMethod}
-                  onValueChange={(value) => setFormData({ ...formData, paymentMethod: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="เงินสด">เงินสด</SelectItem>
-                    <SelectItem value="โอนเงิน">โอนเงิน</SelectItem>
-                    <SelectItem value="เช็ค">เช็ค</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>เลขที่ใบหัก ณ ที่จ่าย (ถ้ามี)</Label>
-                <Input
-                  placeholder="WHT-YYYY-XXX"
-                  value={formData.withholdingTaxNo}
-                  onChange={(e) => setFormData({ ...formData, withholdingTaxNo: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>ยอดเงินหัก ณ ที่จ่าย (ถ้ามี)</Label>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={formData.withholdingTaxAmount}
-                  onChange={(e) => setFormData({ ...formData, withholdingTaxAmount: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>วันที่จ่ายเงิน</Label>
-              <Input
-                type="date"
-                value={formData.paymentDate}
-                onChange={(e) => setFormData({ ...formData, paymentDate: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>รายละเอียด</Label>
-              <Textarea
-                placeholder="รายละเอียดการจ่ายเงิน"
-                rows={4}
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                ยกเลิก
-              </Button>
-              <Button onClick={handleUpdate}>บันทึกการเปลี่ยนแปลง</Button>
-            </div>
+      {/* Edit Form */}
+      {isEditDialogOpen && selectedItem && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto bg-black/50">
+          <div className="w-full max-w-6xl my-8">
+            <PaymentVoucherForm
+              isEditMode={true}
+              editData={selectedItem}
+              onSave={() => {
+                setIsEditDialogOpen(false);
+                setSelectedItem(null);
+                fetchVouchers();
+              }}
+              onCancel={() => {
+                setIsEditDialogOpen(false);
+                setSelectedItem(null);
+              }}
+            />
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
